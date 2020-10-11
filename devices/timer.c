@@ -86,16 +86,25 @@ timer_elapsed (int64_t then)
 
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
+   /*第一次修改*/
 void
 timer_sleep (int64_t ticks) //修改该函数，使用thread_block阻塞函数
 {
+  if(ticks<=0)
+    return;
   int64_t start = timer_ticks ();
   //timer_msleep(100);
   ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) {
-    // printf("test%lld %lld\n", timer_elapsed(start), ticks);
-    thread_yield ();
-  }
+  //保证接下来的原子性操作
+  enum intr_level old_level = intr_disable();//关中断  
+  struct thread* current_thread=thread_current();
+  current_thread->block_period=ticks;
+  thread_block();
+  intr_set_level(old_level);//开中断
+  // while (timer_elapsed (start) < ticks) {
+  //   // printf("test%lld %lld\n", timer_elapsed(start), ticks);
+  //   thread_yield ();
+  // }
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -169,11 +178,13 @@ timer_print_stats (void)
 }
 
 /* Timer interrupt handler. */
+/*第一次修改*/
 static void
-timer_interrupt (struct intr_frame *args UNUSED)
+timer_interrupt (struct intr_frame *args UNUSED)//时间片的时间中断，每隔一个时间片会调用这个函数
 {
   ticks++;
   thread_tick ();
+  thread_foreach(check_ticks,NULL);//对于每个线程，检查是否剩余阻塞时间为0
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

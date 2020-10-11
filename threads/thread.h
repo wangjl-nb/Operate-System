@@ -80,6 +80,7 @@ typedef int tid_t;
    only because they are mutually exclusive: only a thread in the
    ready state is on the run queue, whereas only a thread in the
    blocked state is on a semaphore wait list. */
+/*第一次修改*/
 struct thread//线程结构体
   {
     /* Owned by thread.c. */
@@ -89,7 +90,8 @@ struct thread//线程结构体
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
-
+    //int64_t block_date;               //阻塞的时间点
+    int64_t block_period;               //阻塞剩余时间      
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
@@ -139,3 +141,5 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 #endif /* threads/thread.h */
+/*第一次修改*/
+void check_ticks(struct thread* t,void *aux UNUSED);//声明时间检查函数
