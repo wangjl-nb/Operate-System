@@ -189,8 +189,8 @@ lock_init (struct lock *lock)
    interrupt handler.  This function may be called with
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
-void
-lock_acquire (struct lock *lock)
+void//可能要改
+lock_acquire (struct lock *lock)//获取锁
 {
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
@@ -206,7 +206,7 @@ lock_acquire (struct lock *lock)
 
    This function will not sleep, so it may be called within an
    interrupt handler. */
-bool
+bool//可能要改
 lock_try_acquire (struct lock *lock)
 {
   bool success;

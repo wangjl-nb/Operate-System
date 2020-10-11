@@ -237,7 +237,8 @@ thread_unblock (struct thread *t) //解开线程的阻塞状态
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  // list_push_back (&ready_list, &t->elem);
+  list_insert_ordered(&ready_list, &t->elem, (list_less_func *)&cmp_priority, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -298,6 +299,7 @@ thread_exit (void)
 
 /* Yields the CPU.  The current thread is not put to sleep and
    may be scheduled again immediately at the scheduler's whim. */
+   /*第一次修改*/
 void
 thread_yield (void) 
 {
@@ -308,7 +310,8 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) //idle_thread为空线程，若当前运行的线程不是空线程，则把当前线程的元素放入就绪队列
-    list_push_back (&ready_list, &cur->elem);//把当前线程的元素放入就绪队列
+    // list_push_back (&ready_list, &cur->elem);//把当前线程的元素放入就绪队列
+    list_insert_ordered(&ready_list, &cur->elem, (list_less_func*)&cmp_priority, NULL);
   cur->status = THREAD_READY;//改变线程状态
   schedule ();//使用调度程序，调度下一个线程
   intr_set_level (old_level);
@@ -335,7 +338,12 @@ thread_foreach (thread_action_func *func, void *aux)//遍历所有线程
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  thread_current()->priority = new_priority;
+  struct list_elem* max_list=list_max(&ready_list,(list_less_func*)&cmp_priority,NULL);
+  int max_priority=list_entry(max_list,struct thread,elem)->priority;
+  if(thread_current()->priority<max_priority){
+    thread_yield();
+  }
 }
 
 /* Returns the current thread's priority. */
@@ -553,6 +561,7 @@ static void
 schedule (void) //就绪队列的调度程序
 {
   struct thread *cur = running_thread ();//获取目前正在运行的线程
+  // list_sort(&ready_list,(list_less_func*)&cmp_priority,NULL);
   struct thread *next = next_thread_to_run ();//获取下一个要跑的线程
   struct thread *prev = NULL;
 
@@ -592,3 +601,7 @@ void check_ticks(struct thread* t,void* aux UNUSED){
     }
   }
 }
+//优先级比较函数,a>b返回true
+bool cmp_priority(const struct list_elem *a,const struct list_elem *b,void *aux UNUSED){
+  return list_entry(a,struct thread,elem)->priority > list_entry(b,struct thread,elem)->priority;
+}//对两个列表元素进行实体化操作，从而获取其优先级并进行比较

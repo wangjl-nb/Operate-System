@@ -99,7 +99,7 @@ timer_sleep (int64_t ticks) //修改该函数，使用thread_block阻塞函数
   enum intr_level old_level = intr_disable();//关中断  
   struct thread* current_thread=thread_current();
   current_thread->block_period=ticks;
-  thread_block();
+  thread_block();//线程阻塞
   intr_set_level(old_level);//开中断
   // while (timer_elapsed (start) < ticks) {
   //   // printf("test%lld %lld\n", timer_elapsed(start), ticks);
