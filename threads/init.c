@@ -74,19 +74,19 @@ int main (void) NO_RETURN;
 
 /* Pintos main program. */
 int
-main (void)
+main (void)//主函数
 {
   char **argv;
 
   /* Clear BSS. */  
   bss_init ();
 
-  /* Break command line into arguments and parse options. */
+  /* Break command line into arguments and parse options.读取终端输入 */
   argv = read_command_line ();
   argv = parse_options (argv);
 
   /* Initialize ourselves as a thread so we can use locks,
-     then enable console locking. */
+     then enable console locking. 线程初始化*/
   thread_init ();
   console_init ();  
 
@@ -105,7 +105,7 @@ main (void)
   gdt_init ();
 #endif
 
-  /* Initialize interrupt handlers. */
+  /* Initialize interrupt handlers.初始化中断程序 */
   intr_init ();
   timer_init ();
   kbd_init ();
@@ -115,7 +115,7 @@ main (void)
   syscall_init ();
 #endif
 
-  /* Start thread scheduler and enable interrupts. */
+  /* Start thread scheduler and enable interrupts. 启动线程调度程序并且允许中断*/
   thread_start ();
   serial_init_queue ();
   timer_calibrate ();

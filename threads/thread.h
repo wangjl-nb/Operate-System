@@ -80,7 +80,7 @@ typedef int tid_t;
    only because they are mutually exclusive: only a thread in the
    ready state is on the run queue, whereas only a thread in the
    blocked state is on a semaphore wait list. */
-struct thread
+struct thread//线程结构体
   {
     /* Owned by thread.c. */
     tid_t tid;                          /* Thread identifier. */
@@ -127,7 +127,7 @@ void thread_exit (void) NO_RETURN;
 void thread_yield (void);
 
 /* Performs some operation on thread t, given auxiliary data AUX. */
-typedef void thread_action_func (struct thread *t, void *aux);
+typedef void thread_action_func (struct thread *t, void *aux);//修改该函数的操作，对每个线程进行相关遍历操作
 void thread_foreach (thread_action_func *, void *);
 
 int thread_get_priority (void);

@@ -87,13 +87,15 @@ timer_elapsed (int64_t then)
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
 void
-timer_sleep (int64_t ticks) //修改该函数
+timer_sleep (int64_t ticks) //修改该函数，使用thread_block阻塞函数
 {
   int64_t start = timer_ticks ();
   //timer_msleep(100);
   ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
+  while (timer_elapsed (start) < ticks) {
+    // printf("test%lld %lld\n", timer_elapsed(start), ticks);
     thread_yield ();
+  }
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -217,17 +219,17 @@ real_time_sleep (int64_t num, int32_t denom)
      ---------------------- = NUM * TIMER_FREQ / DENOM ticks. 
      1 s / TIMER_FREQ ticks
   */
-  int64_t ticks = num * TIMER_FREQ / denom;
+  int64_t ticks = num * TIMER_FREQ / denom;//1s100个时间片
 
   ASSERT (intr_get_level () == INTR_ON);
-  if (ticks > 0)
+  if (ticks > 0)//若等待时间大于一个时间片，则线程可以释放cpu，以增大cpu的使用效率
     {
       /* We're waiting for at least one full timer tick.  Use
          timer_sleep() because it will yield the CPU to other
          processes. */                
       timer_sleep (ticks); 
     }
-  else 
+  else //若等待时间小于一个时间片，使用忙等待会更为准确。
     {
       /* Otherwise, use a busy-wait loop for more accurate
          sub-tick timing. */

@@ -164,7 +164,7 @@ thread_print_stats (void)
    Priority scheduling is the goal of Problem 1-3. */
 tid_t
 thread_create (const char *name, int priority,
-               thread_func *function, void *aux) 
+               thread_func *function, void *aux) //线程创建
 {
   struct thread *t;
   struct kernel_thread_frame *kf;
@@ -211,7 +211,7 @@ thread_create (const char *name, int priority,
    is usually a better idea to use one of the synchronization
    primitives in synch.h. */
 void
-thread_block (void) 
+thread_block (void) //线程阻塞
 {
   ASSERT (!intr_context ());
   ASSERT (intr_get_level () == INTR_OFF);
@@ -229,7 +229,7 @@ thread_block (void)
    it may expect that it can atomically unblock a thread and
    update other data. */
 void
-thread_unblock (struct thread *t) 
+thread_unblock (struct thread *t) //解开线程的阻塞状态
 {
   enum intr_level old_level;
 
@@ -301,23 +301,23 @@ thread_exit (void)
 void
 thread_yield (void) 
 {
-  struct thread *cur = thread_current ();
+  struct thread *cur = thread_current ();//获取当前线程的指针位置
   enum intr_level old_level;
   
-  ASSERT (!intr_context ());
+  ASSERT (!intr_context ());//断言为软中断
 
   old_level = intr_disable ();
-  if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
-  cur->status = THREAD_READY;
-  schedule ();
+  if (cur != idle_thread) //idle_thread为空线程，若当前运行的线程不是空线程，则把当前线程的元素放入就绪队列
+    list_push_back (&ready_list, &cur->elem);//把当前线程的元素放入就绪队列
+  cur->status = THREAD_READY;//改变线程状态
+  schedule ();//使用调度程序，调度下一个线程
   intr_set_level (old_level);
 }
 
 /* Invoke function 'func' on all threads, passing along 'aux'.
    This function must be called with interrupts off. */
 void
-thread_foreach (thread_action_func *func, void *aux)
+thread_foreach (thread_action_func *func, void *aux)//遍历所有线程
 {
   struct list_elem *e;
 
@@ -550,19 +550,19 @@ thread_schedule_tail (struct thread *prev)
    It's not safe to call printf() until thread_schedule_tail()
    has completed. */
 static void
-schedule (void) 
+schedule (void) //就绪队列的调度程序
 {
-  struct thread *cur = running_thread ();
-  struct thread *next = next_thread_to_run ();
+  struct thread *cur = running_thread ();//获取目前正在运行的线程
+  struct thread *next = next_thread_to_run ();//获取下一个要跑的线程
   struct thread *prev = NULL;
 
-  ASSERT (intr_get_level () == INTR_OFF);
+  ASSERT (intr_get_level () == INTR_OFF);//原语操作，保证判断过程不被中断
   ASSERT (cur->status != THREAD_RUNNING);
   ASSERT (is_thread (next));
 
   if (cur != next)
-    prev = switch_threads (cur, next);
-  thread_schedule_tail (prev);
+    prev = switch_threads (cur, next);//切换线程
+  thread_schedule_tail (prev);//为要运行的线程分配资源
 }
 
 /* Returns a tid to use for a new thread. */
