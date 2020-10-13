@@ -200,7 +200,10 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
-
+  //判断新线程的优先级，如果大于运行中的，则运行中的线程立即释放cpu
+  if(thread_current()->priority<priority){
+    thread_yield();
+  }
   return tid;
 }
 
@@ -309,11 +312,12 @@ thread_yield (void)
   ASSERT (!intr_context ());//断言为软中断
 
   old_level = intr_disable ();
+
   if (cur != idle_thread) //idle_thread为空线程，若当前运行的线程不是空线程，则把当前线程的元素放入就绪队列
     // list_push_back (&ready_list, &cur->elem);//把当前线程的元素放入就绪队列
-    list_insert_ordered(&ready_list, &cur->elem, (list_less_func*)&cmp_priority, NULL);
-  cur->status = THREAD_READY;//改变线程状态
-  schedule ();//使用调度程序，调度下一个线程
+    list_insert_ordered(&ready_list, &cur->elem, (list_less_func *)&cmp_priority, NULL);
+  cur->status = THREAD_READY; //改变线程状态
+  schedule();                 //使用调度程序，调度下一个线程
   intr_set_level (old_level);
 }
 
@@ -470,6 +474,7 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->old_priority=-1;
   t->magic = THREAD_MAGIC;
 
   old_level = intr_disable ();
@@ -605,3 +610,12 @@ void check_ticks(struct thread* t,void* aux UNUSED){
 bool cmp_priority(const struct list_elem *a,const struct list_elem *b,void *aux UNUSED){
   return list_entry(a,struct thread,elem)->priority > list_entry(b,struct thread,elem)->priority;
 }//对两个列表元素进行实体化操作，从而获取其优先级并进行比较
+//
+void modify_priority(struct thread* t){
+  if(thread_current()->priority>t->priority){
+    t->old_priority=t->priority;
+    t->priority=thread_current()->priority;
+    list_remove(&t->elem);
+    list_push_front(&ready_list,&t->elem);
+  } 
+}

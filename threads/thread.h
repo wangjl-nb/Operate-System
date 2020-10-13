@@ -92,7 +92,8 @@ struct thread//线程结构体
     struct list_elem allelem;           /* List element for all threads list. */
     //int64_t block_date;               //阻塞的时间点
     int64_t block_period;               //阻塞剩余时间      
-    struct thread* exchange_thread;     //交换优先级的线程
+   //  struct thread* exchange_thread;     //交换优先级的线程
+    int old_priority;
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
@@ -145,3 +146,4 @@ int thread_get_load_avg (void);
 /*第一次修改*/
 void check_ticks(struct thread* t,void *aux UNUSED);//声明时间检查函数
 bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+void modify_priority(struct thread* t);
