@@ -342,12 +342,18 @@ thread_foreach (thread_action_func *func, void *aux)//遍历所有线程
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current()->priority = new_priority;
-  struct list_elem* max_list=list_max(&ready_list,(list_less_func*)&cmp_priority,NULL);
-  int max_priority=list_entry(max_list,struct thread,elem)->priority;
-  if(thread_current()->priority<max_priority){
+  enum intr_level old_level=intr_disable();
+  struct thread * current_thread=thread_current();
+  int old_priority=current_thread->old_priority;
+  current_thread->old_priority=new_priority;
+  // thread_current()->priority = new_priority;
+  // struct list_elem* max_list=list_max(&ready_list,(list_less_func*)&cmp_priority,NULL);
+  // int max_priority=list_entry(max_list,struct thread,elem)->priority;
+  if(list_empty(&current_thread->hold_locks)||new_priority>old_priority){
+    current_thread->priority=new_priority;
     thread_yield();
   }
+  intr_set_level(old_level);
 }
 
 /* Returns the current thread's priority. */
@@ -474,7 +480,9 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
-  t->old_priority=-1;
+  t->old_priority=priority;
+  t->waiting_lock=NULL;
+  list_init(&t->hold_locks);
   t->magic = THREAD_MAGIC;
 
   old_level = intr_disable ();
@@ -610,12 +618,68 @@ void check_ticks(struct thread* t,void* aux UNUSED){
 bool cmp_priority(const struct list_elem *a,const struct list_elem *b,void *aux UNUSED){
   return list_entry(a,struct thread,elem)->priority > list_entry(b,struct thread,elem)->priority;
 }//对两个列表元素进行实体化操作，从而获取其优先级并进行比较
-//
-void modify_priority(struct thread* t){
-  if(thread_current()->priority>t->priority){
-    t->old_priority=t->priority;
-    t->priority=thread_current()->priority;
+
+bool cmp_lock(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+  return list_entry(a, struct lock, elem)->max_priority > list_entry(b, struct lock, elem)->max_priority;
+} //对两个列表元素进行实体化操作，从而获取其优先级并进行比较
+
+bool cmp_cond(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED){
+  struct semaphore_elem *sema_a = list_entry(a, struct semaphore_elem, elem);
+  struct semaphore_elem *sema_b = list_entry(b, struct semaphore_elem, elem);
+  return list_entry(list_front(&sema_a->semaphore.waiters), struct thread, elem)->priority >
+         list_entry(list_front(&sema_b->semaphore.waiters), struct thread, elem)->priority;
+}
+
+void thread_update_priority(struct thread* t){
+  enum intr_level old_level = intr_disable();
+  int max_piority=t->old_priority;
+  int lock_priority;
+
+  if(!(list_empty(&t->hold_locks))){
+    // printf("锁不为空\n");
+    list_sort(&t->hold_locks,cmp_lock,NULL);
+    lock_priority=list_entry(list_front(&t->hold_locks),struct lock,elem)->max_priority;
+    if(lock_priority>max_piority)
+      max_piority=lock_priority;
+  }
+  t->priority=max_piority;
+  // thread_yield();
+  intr_set_level(old_level);
+}
+
+void thread_donate_priority(struct thread* t){
+  enum intr_level old_level = intr_disable();
+  thread_update_priority(t);
+  // if(!(list_empty(&t->hold_locks))){
+  //   printf("no");
+  // }else{
+  //   printf("yes");
+  // }
+  if(t->status == THREAD_READY){
+    // printf("切换%d\n", t->priority);
+    // printf("现在%d\n", thread_current()->priority);
     list_remove(&t->elem);
-    list_push_front(&ready_list,&t->elem);
-  } 
+    list_insert_ordered(&ready_list,&t->elem,cmp_priority,NULL);
+  }
+  intr_set_level(old_level);
+}
+
+void thread_hold_lock(struct lock* lock){
+  enum intr_level old_level=intr_disable();
+  list_insert_ordered(&thread_current()->hold_locks,&lock->elem,cmp_lock,NULL);
+  if(lock->max_priority > thread_current()->priority){
+    
+    thread_current()->priority=lock->max_priority;
+    // printf("%d", thread_current()->priority);
+    thread_yield();
+  }
+  intr_set_level(old_level);
+}
+
+void thread_remove_lock(struct lock* lock){
+  enum intr_level old_level = intr_disable();
+  list_remove(&lock->elem);
+  thread_update_priority(thread_current());
+  intr_set_level(old_level);
 }

@@ -93,7 +93,9 @@ struct thread//线程结构体
     //int64_t block_date;               //阻塞的时间点
     int64_t block_period;               //阻塞剩余时间      
    //  struct thread* exchange_thread;     //交换优先级的线程
-    int old_priority;
+    int old_priority;                     //原优先级
+    struct list hold_locks;               //当前线程所持有的锁的列表
+    struct lock* waiting_lock;            //当前线程所等待的锁
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
@@ -147,3 +149,9 @@ int thread_get_load_avg (void);
 void check_ticks(struct thread* t,void *aux UNUSED);//声明时间检查函数
 bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 void modify_priority(struct thread* t);
+void thread_donate_priority(struct thread *t);
+void thread_hold_lock(struct lock *lock);
+bool cmp_lock(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+void thread_remove_lock(struct lock *lock);
+void thread_update_priority(struct thread *t);
+bool cmp_cond(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
