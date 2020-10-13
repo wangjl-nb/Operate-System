@@ -200,10 +200,10 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
-  //判断新线程的优先级，如果大于运行中的，则运行中的线程立即释放cpu
-  if(thread_current()->priority<priority){
+  /* 第一次修改 */
+  /* 新创建的线程优先级比当前运行的线程优先级高，那么直接抢占CPU。否则，主线程在创建之后还会继续执行自己的代码*/
+  if(thread_current()->priority < priority)
     thread_yield();
-  }
   return tid;
 }
 
