@@ -185,6 +185,18 @@ timer_interrupt (struct intr_frame *args UNUSED)//时间片的时间中断，每
   ticks++;
   thread_tick ();
   thread_foreach(check_ticks,NULL);//对于每个线程，检查是否剩余阻塞时间为0
+
+
+  if (thread_mlfqs)
+    {
+      thread_mlfqs_increase_recent_cpu_by_one ();
+      if (ticks % TIMER_FREQ == 0)
+        thread_mlfqs_update_load_avg_and_recent_cpu ();
+      else if (ticks % 4 == 0)
+        thread_mlfqs_update_priority (thread_current ());
+    }//points3
+
+
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
