@@ -216,10 +216,13 @@ lock_acquire (struct lock *lock)//获取锁
   sema_down (&lock->semaphore);
   current_thread=thread_current();
   old_level=intr_disable();
+  if(!thread_mlfqs)
+  {
+  current_thread->waiting_lock = NULL;
   lock->max_priority=current_thread->priority;
   // printf("拿到锁了");
   thread_hold_lock(lock);
-  
+  }
   lock->holder = current_thread;
   intr_set_level(old_level);
   // printf("123\n");
@@ -252,9 +255,11 @@ lock_try_acquire (struct lock *lock)
 void//第一次修改
 lock_release (struct lock *lock) 
 {
+
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
   lock->holder = NULL;
+  if(!thread_mlfqs)
   thread_remove_lock(lock);
   sema_up (&lock->semaphore);
   // printf("释放锁成功");

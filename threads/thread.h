@@ -14,6 +14,8 @@ enum thread_status
     THREAD_DYING        /* About to be destroyed. */
   };
 
+typedef int fixed_t;//points3
+
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
 typedef int tid_t;
@@ -98,6 +100,9 @@ struct thread//线程结构体
     struct lock* waiting_lock;            //当前线程所等待的锁
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
+
+    int nice;//points3
+    fixed_t recent_cpu;//points3
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
