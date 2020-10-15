@@ -1,31 +1,29 @@
 #ifndef __THREAD_FIXED_POINT_H
   #define __THREAD_FIXED_POINT_H
   
-  /* Basic definitions of fixed point. */
-  typedef int fixed_t;
-  /* 16 LSB used for fractional part. */
-  #define FP_SHIFT_AMOUNT 14
-  /* Convert a value to fixed-point value. */
-  #define FP_CONST(A) ((fixed_t)(A << FP_SHIFT_AMOUNT))
- /* Add two fixed-point value. */
- #define FP_ADD(A,B) (A + B)
- /* Add a fixed-point value A and an int value B. */
- #define FP_ADD_MIX(A,B) (A + (B << FP_SHIFT_AMOUNT))
- /* Substract two fixed-point value. */
- #define FP_SUB(A,B) (A - B)
- /* Substract an int value B from a fixed-point value A */
- #define FP_SUB_MIX(A,B) (A - (B << FP_SHIFT_AMOUNT))
- /* Multiply a fixed-point value A by an int value B. */
- #define FP_MULT_MIX(A,B) (A * B)
- /* Divide a fixed-point value A by an int value B. */
- #define FP_DIV_MIX(A,B) (A / B)
- /* Multiply two fixed-point value. */
- #define FP_MULT(A,B) ((fixed_t)(((int64_t) A) * B >> FP_SHIFT_AMOUNT))
- /* Divide two fixed-point value. */
- #define FP_DIV(A,B) ((fixed_t)((((int64_t) A) << FP_SHIFT_AMOUNT) / B))
- /* Get integer part of a fixed-point value. */
- #define FP_INT_PART(A) (A >> FP_SHIFT_AMOUNT)
- /* Get rounded integer of a fixed-point value. */
+ /* 题目要求2^14，移位数即为14 */
+ #define FP_SHIFT_AMOUNT 14
+ /* 整数转化为浮点数 */
+ #define INT_TO_FP(A) ((A << FP_SHIFT_AMOUNT))
+ /* 浮点数相加 */
+ #define FP_ADD_FP(A,B) (A + B)
+ /* 浮点数加整数（第二个数为整数） */
+ #define FP_ADD_INT(A,B) (A + (B << FP_SHIFT_AMOUNT))
+ /* 浮点数相减 */
+ #define FP_SUB_FP(A,B) (A - B)
+ /* 浮点数减整数（第二个数为整数） */
+ #define FP_SUB_INT(A,B) (A - (B << FP_SHIFT_AMOUNT))
+ /* 浮点数相乘 */
+ #define FP_MULT_FP(A,B) ((((int64_t) A) * B >> FP_SHIFT_AMOUNT))
+ /* 浮点数乘整数（第二个数为整数） */
+ #define FP_MULT_INT(A,B) (A * B)
+ /* 浮点数除以浮点数 */
+ #define FP_DIV_FP(A,B) (((((int64_t) A) << FP_SHIFT_AMOUNT) / B))
+ /* 浮点数除以整数（第二个数为整数） */
+ #define FP_DIV_INT(A,B) (A / B)
+ /* 截断，即获取浮点数整数部分 */
+ #define FP_TRUNCATE(A) (A >> FP_SHIFT_AMOUNT)
+ /* 四舍五入到最近的整数 */
  #define FP_ROUND(A) (A >= 0 ? ((A + (1 << (FP_SHIFT_AMOUNT - 1))) >> FP_SHIFT_AMOUNT) \
          : ((A - (1 << (FP_SHIFT_AMOUNT - 1))) >> FP_SHIFT_AMOUNT))
  

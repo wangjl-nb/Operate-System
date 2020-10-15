@@ -14,8 +14,6 @@ enum thread_status
     THREAD_DYING        /* About to be destroyed. */
   };
 
-typedef int fixed_t;//points3
-
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
 typedef int tid_t;
@@ -100,9 +98,8 @@ struct thread//线程结构体
     struct lock* waiting_lock;            //当前线程所等待的锁
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
-
-    int nice;//points3
-    fixed_t recent_cpu;//points3
+    int nice;                             //nice值
+    int64_t recent_cpu;                       //recent_cpu值
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -160,3 +157,7 @@ bool cmp_lock(const struct list_elem *a, const struct list_elem *b, void *aux UN
 void thread_remove_lock(struct lock *lock);
 void thread_update_priority(struct thread *t);
 bool cmp_cond(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+void recal_priority(struct thread* temp);
+void recent_cpu_add_one(void);
+void recal_recent_cpu(void);
+void recal_load_avg(void);
