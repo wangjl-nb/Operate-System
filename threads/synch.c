@@ -66,11 +66,11 @@ sema_down (struct semaphore *sema)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  while (sema->value == 0) 
+  while (sema->value == 0) //如果剩余为0
     {
       // list_push_back (&sema->waiters, &thread_current ()->elem);
-      list_insert_ordered(&sema->waiters,&thread_current()->elem,cmp_priority,NULL);
-      thread_block ();
+      list_insert_ordered(&sema->waiters,&thread_current()->elem,cmp_priority,NULL);//按优先级有序插入
+      thread_block ();//线程阻塞
     }
   sema->value--;
   intr_set_level (old_level);
@@ -115,7 +115,7 @@ sema_up (struct semaphore *sema)
 
   old_level = intr_disable ();
   if (!list_empty (&sema->waiters)) {
-    struct list_elem *sema_max_priority = list_min(&sema->waiters,cmp_priority,NULL);
+    struct list_elem *sema_max_priority = list_min(&sema->waiters,cmp_priority,NULL);//获得优先级最高的线程
     list_remove(sema_max_priority);
     thread_unblock(list_entry(sema_max_priority,struct thread, elem));
   }
@@ -202,29 +202,27 @@ lock_acquire (struct lock *lock)//获取锁
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
-  // printf("123\n");
-  if(lock->holder!=NULL){
-    current_thread->waiting_lock=lock;
+  if(lock->holder){
+    current_thread->waiting_lock=lock;//把该锁加入到线程的等待锁中
     l=lock;
-    while(l&&l->max_priority<current_thread->priority){
+    while(l!=NULL&&l->max_priority<current_thread->priority){//通过循环把嵌套情况下的所有锁持有线程都修改优先级
       // printf("%d\n",l->max_priority);
       l->max_priority=current_thread->priority;
-      thread_donate_priority(l->holder);
-      l=l->holder->waiting_lock;
+      thread_donate_priority(l->holder);//实现线程的优先级修改
+      l=l->holder->waiting_lock;//切换到下一个锁
     }
   }
-  sema_down (&lock->semaphore);
-  current_thread=thread_current();
+  sema_down (&lock->semaphore);//获取锁
+  // current_thread=thread_current();
   old_level=intr_disable();
   if(!thread_mlfqs){
-    current_thread = thread_current();
-    lock->max_priority=current_thread->priority;
+    // current_thread = thread_current();
+    lock->max_priority = thread_current()->priority;//重新赋值锁的最大优先级
     // printf("拿到锁了");
     thread_hold_lock(lock);
   }
   
-  
-  lock->holder = current_thread;
+  lock->holder = current_thread;//更改锁的持有者
   intr_set_level(old_level);
   // printf("123\n");
 }
