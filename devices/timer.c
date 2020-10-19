@@ -48,7 +48,6 @@ timer_calibrate (void)
 
   ASSERT (intr_get_level () == INTR_ON);
   printf ("Calibrating timer...  ");
-
   /* Approximate loops_per_tick as the largest power-of-two
      still less than one timer tick. */
   loops_per_tick = 1u << 10;

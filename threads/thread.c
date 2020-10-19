@@ -588,7 +588,7 @@ schedule (void) //就绪队列的调度程序
   ASSERT (cur->status != THREAD_RUNNING);
   ASSERT (is_thread (next));
 
-  if (cur != next)
+  if (cur != next)//就绪队列里还有线程
     prev = switch_threads (cur, next);//切换线程
   thread_schedule_tail (prev);//为要运行的线程分配资源
 }
