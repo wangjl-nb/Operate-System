@@ -36,8 +36,8 @@ static void real_time_delay (int64_t num, int32_t denom);
 void
 timer_init (void) 
 {
-  pit_configure_channel (0, 2, TIMER_FREQ);
-  intr_register_ext (0x20, timer_interrupt, "8254 Timer");
+  pit_configure_channel (0, 2, TIMER_FREQ);//TIMER_FREQ=100，1s时间片数为100.
+  intr_register_ext (0x20, timer_interrupt, "8254 Timer");//定时器
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
