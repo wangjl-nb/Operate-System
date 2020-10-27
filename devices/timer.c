@@ -92,7 +92,6 @@ timer_sleep (int64_t ticks) //修改该函数，使用thread_block阻塞函数
 {
   if(ticks<=0)
     return;
-  int64_t start = timer_ticks ();
   //timer_msleep(100);
   ASSERT (intr_get_level () == INTR_ON);
   //保证接下来的原子性操作

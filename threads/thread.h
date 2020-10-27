@@ -151,11 +151,9 @@ int thread_get_load_avg (void);
 void check_ticks(struct thread* t,void *aux UNUSED);//声明时间检查函数
 bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 void modify_priority(struct thread* t);
-void thread_donate_priority(struct thread *t);
-void thread_hold_lock(struct lock *lock);
+void thread_donate_priority(struct thread *t, int donate_priority);
 bool cmp_lock(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 void thread_remove_lock(struct lock *lock);
-void thread_update_priority(struct thread *t);
 bool cmp_cond(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 void recal_priority(struct thread* temp);
 void recent_cpu_add_one(void);
