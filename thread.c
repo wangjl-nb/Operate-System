@@ -637,27 +637,17 @@ bool cmp_cond(const struct list_elem *a, const struct list_elem *b, void *aux UN
          list_entry(list_front(&sema_b->semaphore.waiters), struct thread, elem)->priority;
 }
 
-void thread_update_priority(struct thread* t){
-  enum intr_level old_level = intr_disable();
-  int lock_priority;
-  int final_piority=t->old_priority;
-
-  if(!(list_empty(&t->hold_locks))){//线程池有所不为空
-    // printf("锁不为空\n");
-    // list_sort(&t->hold_locks,cmp_lock,NULL);
-    // lock_priority=list_entry(list_front(&t->hold_locks),struct lock,elem)->max_priority;
-    lock_priority=list_entry(list_min(&t->hold_locks,cmp_lock,NULL),struct lock,elem)->max_priority;//获取持有锁的最高优先级
-    if(lock_priority>=final_piority)
-      final_piority=lock_priority;
-  }
-  t->priority=final_piority;
-  // thread_yield();
-  intr_set_level(old_level);
-}
-
-void thread_donate_priority(struct thread* t){
+void thread_donate_priority(struct thread* t, int donate_priority){
   enum intr_level old_level = intr_disable();//关中断
-  thread_update_priority(t);
+  int t_lock_max_priority = list_entry(list_min(&t->hold_locks,cmp_lock,NULL),struct lock,elem)->max_priority;
+  if(!list_empty(&t->hold_locks)){
+    if(t_lock_max_priority >= t->old_priority){
+      if(t_lock_max_priority < donate_priority)
+        t->priority = donate_priority;
+      else
+        t->priority = t_lock_max_priority;
+    }
+  }
   if(t->status == THREAD_READY){//如果线程在就绪队列里面，修改优先级后重新有序插入到就绪队列中
     list_remove(&t->elem);
     list_insert_ordered(&ready_list,&t->elem,cmp_priority,NULL);
@@ -665,23 +655,20 @@ void thread_donate_priority(struct thread* t){
   intr_set_level(old_level);
 }
 
-void thread_hold_lock(struct lock* lock){
-  enum intr_level old_level=intr_disable();
-  // list_insert_ordered(&thread_current()->hold_locks,&lock->elem,cmp_lock,NULL);//把刚获得的锁，有序插入到锁列表中
-  list_push_back(&thread_current()->hold_locks,&lock->elem);//把刚获得的锁放入持有锁队列后
-  if(lock->max_priority > thread_current()->priority){//防止意外发生
-    
-    thread_current()->priority=lock->max_priority;
-    // printf("%d", thread_current()->priority);
-    thread_yield();
-  }
-  intr_set_level(old_level);
-}
-
 void thread_remove_lock(struct lock* lock){
   enum intr_level old_level = intr_disable();
   list_remove(&lock->elem);//从持有锁队列中移除锁
-  thread_update_priority(thread_current());//修改线程优先级
+  struct thread* t = thread_current();
+  int lock_priority;
+  int final_piority=t->old_priority;
+
+  if(!(list_empty(&t->hold_locks))){//线程池有所不为空
+    // printf("锁不为空\n");
+    lock_priority=list_entry(list_min(&t->hold_locks,cmp_lock,NULL),struct lock,elem)->max_priority;//获取持有锁的最高优先级
+    if(lock_priority>=final_piority)
+      final_piority=lock_priority;
+  }
+  t->priority=final_piority;
   intr_set_level(old_level);
 }
 //每四个ticks更新一次
