@@ -208,7 +208,7 @@ lock_acquire (struct lock *lock)//获取锁
     while(l!=NULL&&l->max_priority<current_thread->priority){//通过循环把嵌套情况下的所有锁持有线程都修改优先级
       // printf("%d\n",l->max_priority);
       l->max_priority=current_thread->priority;
-      thread_donate_priority(l->holder);//实现线程的优先级修改
+      thread_donate_priority(l->holder, current_thread->priority);//实现线程的优先级修改
       l=l->holder->waiting_lock;//切换到下一个锁
     }
   }
@@ -219,7 +219,12 @@ lock_acquire (struct lock *lock)//获取锁
     // current_thread = thread_current();
     lock->max_priority = thread_current()->priority;//重新赋值锁的最大优先级
     // printf("拿到锁了");
-    thread_hold_lock(lock);
+    list_push_back(&thread_current()->hold_locks,&lock->elem);//把刚获得的锁放入持有锁队列后
+    if(lock->max_priority > thread_current()->priority){//防止意外发生
+      thread_current()->priority=lock->max_priority;
+      // printf("%d", thread_current()->priority);
+      thread_yield();
+    }
   }
   
   lock->holder = current_thread;//更改锁的持有者
