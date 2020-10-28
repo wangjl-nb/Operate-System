@@ -157,5 +157,5 @@ void thread_remove_lock(struct lock *lock);
 bool cmp_cond(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 void recal_priority(struct thread* temp);
 void recent_cpu_add_one(void);
-void recal_recent_cpu(void);
+void recal_recent_cpu(struct thread* temp, void *aux UNUSED);
 void recal_load_avg(void);

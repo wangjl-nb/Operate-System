@@ -192,7 +192,7 @@ timer_interrupt (struct intr_frame *args UNUSED)//时间片的时间中断，每
     //计算recent_cpu时已经重新计算了优先级
     if(ticks % TIMER_FREQ == 0){
       recal_load_avg();
-      recal_recent_cpu();
+      thread_foreach(recal_recent_cpu, NULL);
     }
     if(ticks % TIMER_FREQ != 0 && ticks % 4 == 0)
       recal_priority(current_thread);

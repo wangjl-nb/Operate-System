@@ -691,19 +691,14 @@ void recent_cpu_add_one(){
   }
 }
 
-void recal_recent_cpu(){
+void recal_recent_cpu(struct thread* temp, void *aux UNUSED){
   //因为是对于所有的线程都要更新(除了idle线程之外)，所以每个都要更新一次
   struct list_elem *e = list_begin(&all_list);
-  struct thread* tmp;
   int64_t load_avg_double = FP_MULT_INT(load_avg, 2);
   int64_t load_avg_double_div = FP_DIV_FP(load_avg_double, FP_ADD_INT(load_avg_double, 1));
-  while(e != list_end(&all_list)){
-    tmp = list_entry(e, struct thread, allelem);
-    if(tmp != idle_thread){
-      tmp->recent_cpu = FP_ADD_INT(FP_MULT_FP(load_avg_double_div, tmp->recent_cpu), tmp->nice); 
-      recal_priority(tmp);
-    }
-    e = list_next(e);
+  if(temp != idle_thread){
+    temp->recent_cpu = FP_ADD_INT(FP_MULT_FP(load_avg_double_div, temp->recent_cpu), temp->nice); 
+    recal_priority(temp);
   }
 }
 
