@@ -196,13 +196,13 @@ lock_init (struct lock *lock)
 void//第一次修改
 lock_acquire (struct lock *lock)//获取锁
 {
-  struct thread *current_thread=thread_current();
+  struct thread *current_thread=thread_current();//获取当前线程
   struct lock* l;
   enum intr_level old_level;
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
-  if(lock->holder){
+  if(lock->holder!=NULL){
     current_thread->waiting_lock=lock;//把该锁加入到线程的等待锁中
     l=lock;
     while(l!=NULL&&l->max_priority<current_thread->priority){//通过循环把嵌套情况下的所有锁持有线程都修改优先级
@@ -214,14 +214,14 @@ lock_acquire (struct lock *lock)//获取锁
   }
   sema_down (&lock->semaphore);//获取锁
   // current_thread=thread_current();
-  old_level=intr_disable();
-  if(!thread_mlfqs){
+  old_level=intr_disable();//关中断
+  if(!thread_mlfqs){//第二问
     // current_thread = thread_current();
-    lock->max_priority = thread_current()->priority;//重新赋值锁的最大优先级
+    lock->max_priority = current_thread->priority;//重新赋值锁的最大优先级
     // printf("拿到锁了");
-    list_push_back(&thread_current()->hold_locks,&lock->elem);//把刚获得的锁放入持有锁队列后
-    if(lock->max_priority > thread_current()->priority){//防止意外发生
-      thread_current()->priority=lock->max_priority;
+    list_push_back(&current_thread->hold_locks,&lock->elem);//把刚获得的锁放入持有锁队列后
+    if(lock->max_priority > current_thread->priority){//防止意外发生
+      current_thread->priority=lock->max_priority;
       // printf("%d", thread_current()->priority);
       thread_yield();
     }

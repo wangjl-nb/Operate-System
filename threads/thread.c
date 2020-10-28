@@ -639,7 +639,7 @@ bool cmp_cond(const struct list_elem *a, const struct list_elem *b, void *aux UN
 
 void thread_donate_priority(struct thread* t, int donate_priority){
   enum intr_level old_level = intr_disable();//关中断
-  int t_lock_max_priority = list_entry(list_min(&t->hold_locks,cmp_lock,NULL),struct lock,elem)->max_priority;
+  int t_lock_max_priority = list_entry(list_min(&t->hold_locks,cmp_lock,NULL),struct lock,elem)->max_priority;//获取锁的最大优先级
   if(!list_empty(&t->hold_locks)){
     if(t_lock_max_priority >= t->old_priority){
       if(t_lock_max_priority < donate_priority)
@@ -657,17 +657,17 @@ void thread_donate_priority(struct thread* t, int donate_priority){
 
 void thread_remove_lock(struct lock* lock){
   enum intr_level old_level = intr_disable();
-  struct thread* t = thread_current();
+  struct thread* current_thread = thread_current();
   int lock_priority;
-  int final_piority=t->old_priority;
-  
+  int final_piority = current_thread->old_priority;
+
   list_remove(&lock->elem);//从持有锁队列中移除锁
-  if(!(list_empty(&t->hold_locks))){
-    lock_priority=list_entry(list_min(&t->hold_locks,cmp_lock,NULL),struct lock,elem)->max_priority;//获取持有锁的最高优先级
+  if (!(list_empty(&current_thread->hold_locks))){//如果还有锁
+    lock_priority = list_entry(list_min(&current_thread->hold_locks, cmp_lock, NULL), struct lock, elem)->max_priority; //获取持有锁的最高优先级
     if(lock_priority>=final_piority)
       final_piority=lock_priority;
   }
-  t->priority=final_piority;
+  current_thread->priority = final_piority;
   intr_set_level(old_level);
 }
 //每四个ticks更新一次
@@ -683,6 +683,7 @@ void recal_priority(struct thread* temp){
       temp->priority = PRI_MAX;
   }
 }
+
 void recent_cpu_add_one(){
   struct thread* current_thread = thread_current();
   if(current_thread != idle_thread){
