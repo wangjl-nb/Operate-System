@@ -349,7 +349,7 @@ thread_set_priority (int new_priority)
     return;
   enum intr_level old_level=intr_disable();
   struct thread * current_thread=thread_current();
-  int old_priority=current_thread->old_priority;
+  // int old_priority=current_thread->old_priority;
   current_thread->old_priority=new_priority;
   // thread_current()->priority = new_priority;
   // struct list_elem* max_list=list_max(&ready_list,(list_less_func*)&cmp_priority,NULL);

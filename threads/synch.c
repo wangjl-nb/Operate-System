@@ -66,7 +66,7 @@ sema_down (struct semaphore *sema)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  while (sema->value == 0) //如果剩余为0
+  if (sema->value == 0) //如果剩余为0
     {
       // list_push_back (&sema->waiters, &thread_current ()->elem);
       list_insert_ordered(&sema->waiters,&thread_current()->elem,cmp_priority,NULL);//按优先级有序插入
@@ -263,7 +263,7 @@ lock_release (struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
   lock->holder = NULL;
   if(!thread_mlfqs)
-  thread_remove_lock(lock);
+    thread_remove_lock(lock);
   sema_up (&lock->semaphore);
   // printf("释放锁成功");
 }

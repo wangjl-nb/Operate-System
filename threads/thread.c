@@ -15,12 +15,11 @@
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
-
+bool thread_started=false;
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
-
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
@@ -109,13 +108,13 @@ void
 thread_start (void) 
 {
   /* Create the idle thread. */
+  thread_started=true;
   struct semaphore idle_started;
   sema_init (&idle_started, 0);
   thread_create ("idle", PRI_MIN, idle, &idle_started);
-
+  
   /* Start preemptive thread scheduling. */
   intr_enable ();
-
   /* Wait for the idle thread to initialize idle_thread. */
   sema_down (&idle_started);
 }
@@ -219,6 +218,9 @@ thread_create (const char *name, int priority,
 void
 thread_block (void) //线程阻塞
 {
+  if(!thread_started){
+    return;
+  }
   ASSERT (!intr_context ());
   ASSERT (intr_get_level () == INTR_OFF);
 
@@ -309,6 +311,10 @@ thread_exit (void)
 void
 thread_yield (void) 
 {
+  if (!thread_started)
+  {
+    return;
+  }
   struct thread *cur = thread_current ();//获取当前线程的指针位置
   enum intr_level old_level;
   
@@ -349,7 +355,7 @@ thread_set_priority (int new_priority)
     return;
   enum intr_level old_level=intr_disable();
   struct thread * current_thread=thread_current();
-  int old_priority=current_thread->old_priority;
+  // int old_priority=current_thread->old_priority;
   current_thread->old_priority=new_priority;
   // thread_current()->priority = new_priority;
   // struct list_elem* max_list=list_max(&ready_list,(list_less_func*)&cmp_priority,NULL);
@@ -490,6 +496,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->waiting_lock=NULL;
   list_init(&t->hold_locks);
   t->magic = THREAD_MAGIC;
+  t->block_period=0;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
