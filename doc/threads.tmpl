@@ -1,0 +1,345 @@
+            +--------------------+
+            |        CS 140      |
+            | PROJECT 1: THREADS |
+            |   DESIGN DOCUMENT  |
+            +--------------------+
+
+---- GROUP ----
+
+>> Fill in the names and email addresses of your group members.
+
+王靖龙 18373024
+侯瑾韫 18373517
+答霈豪 18373498
+李昆蓉 17005038
+
+---- PRELIMINARIES ----
+
+>> If you have any preliminary comments on your submission, notes for the
+>> TAs, or extra credit, please give them here.
+
+>> Please cite any offline or online sources you consulted while
+>> preparing your submission, other than the Pintos documentation, course
+>> text, lecture notes, and course staff.
+
+                 ALARM CLOCK
+                 ===========
+
+---- DATA STRUCTURES ----
+
+>> A1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+"thread"是线程结构体，在该结构体中新增加了成员变量"block_period",
+用于记录线程被阻塞的时间片长度。
+
+/*thread*/
+struct thread
+  {
+    /* Owned by thread.c. */
+    tid_t tid;                          
+    enum thread_status status;          
+    char name[16];                      
+    uint8_t *stack;                     
+    int priority;                       
+    struct list_elem allelem;           
+    int64_t block_period;               /*added*/
+    int old_priority;                     
+    struct list hold_locks;               
+    struct lock* waiting_lock;            
+    struct list_elem elem;              
+    int nice;                             
+    int64_t recent_cpu;                       
+
+#ifdef USERPROG
+    /* Owned by userprog/process.c. */
+    uint32_t *pagedir;                  
+#endif
+
+    /* Owned by thread.c. */
+    unsigned magic;                     
+  };
+
+---- ALGORITHMS ----
+//调用timer_sleep()时发生的情况 & 计时器中断处理程序的影响
+>> A2: Briefly describe what happens in a call to timer_sleep(),
+>> including the effects of the timer interrupt handler.
+调用timer_sleep()后如果传入的时间片参数小于0，就直接返回；否则，timer_sleep()会获取当前线程，
+并把修改block_period的值以记录该线程需要被阻塞的时间片长度，然后调用thread_block()阻塞该线程，
+即可以避免线程在就绪队列中循环的“忙等待”状态，以让出CPU去运行其他线程。
+
+//采取什么步骤来减少计时器中断处理程序花费的时间？
+>> A3: What steps are taken to minimize the amount of time spent in
+>> the timer interrupt handler?
+系统每经过一个时间片会调用一次check_ticks()检查每一个线程的block_period。若线程block_period的值不为0，就使其值减1；
+若线程block_period的值为0，就唤醒该线程，但如果此时CPU不空闲，将该线程放入就绪队列；如果此时CPU空闲，该线程立即得到CPU使用权。
+
+---- SYNCHRONIZATION ----
+//当多个线程同时调用timer_sleep()时，如何避免竞争条件？
+>> A4: How are race conditions avoided when multiple threads call
+>> timer_sleep() simultaneously?
+通过调用intr_disabled()函数关闭中断控制，保证了每个线程的阻塞操作能够完整运行，也保证了操作的原子性。
+
+//在调用timer_sleep()期间发生计时器中断时，如何避免竞争?
+>> A5: How are race conditions avoided when a timer interrupt occurs
+>> during a call to timer_sleep()?
+通过调用intr_disabled()函数关闭中断控制并屏蔽时钟中断，保证了每个线程的阻塞操作能够完整运行，也保证了操作的原子性。
+
+---- RATIONALE ----
+//为什么选择这种设计？ 它在什么方面优于您考虑的另一种设计？
+>> A6: Why did you choose this design?  In what ways is it superior to
+>> another design you considered?
+这种设计能简洁高效的阻塞线程和唤醒线程，提高了CPU的利用率。
+另一种设计需要在线程结构体中多增加两个属性分别记录线程被阻塞时的时间点和线程需要被阻塞的时间片长度，并要求每经过一个时间片，
+让这两个属性的值相加后的和与当前的时间点进行比较。如果该和大于当前时间点，则继续阻塞；否则，唤醒该线程。
+这种设计要求每经过一个时间片对每一个线程都进行计算，会浪费CPU，降低CPU的使用效率。
+
+             PRIORITY SCHEDULING
+             ===================
+
+---- DATA STRUCTURES ----
+//记录更新的结构体、结构成员(struct member?)、全局变量、静态变量、typeof、枚举 & 说明他们的目的
+>> B1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+"thread"是线程结构体。新增的成员变量有old_priority、hold_locks和waiting_lock。
+old_priority用于记录线程的原优先级；hold_lock是一个列表，记录线程当前持有的所有锁；
+waiting_lock记录线程当前正在等待的锁。
+
+/*thread*/
+struct thread//线程结构体
+  {
+    /* Owned by thread.c. */
+    tid_t tid;                          
+    enum thread_status status;          
+    char name[16];                      
+    uint8_t *stack;                     
+    int priority;                       
+    struct list_elem allelem;           
+    int64_t block_period;                     
+    int old_priority;                     /*added*/
+    struct list hold_locks;               /*added*/
+    struct lock* waiting_lock;            /*added*/
+    /* Shared between thread.c and synch.c. */
+    struct list_elem elem;              
+
+#ifdef USERPROG
+    /* Owned by userprog/process.c. */
+    uint32_t *pagedir;                  
+#endif
+
+    /* Owned by thread.c. */
+    unsigned magic;                     
+  };
+
+"lock"是锁结构体。新增的成员变量max_priority用于记录锁的优先级；
+新增的成员变量elem利用已经封装好的函数将锁链表设置为双向链表。
+
+/*Lock*/
+struct lock 
+  {
+    struct thread *holder;      
+    struct semaphore semaphore; 
+    int max_priority;           /*added*/
+    struct list_elem elem;      /*added*/
+  };
+
+//解释用于跟踪优先级捐赠的数据结构 & 用ASCII art(?)去图解嵌套捐赠
+>> B2: Explain the data structure used to track priority donation.
+>> Use ASCII art to diagram a nested donation.  (Alternately, submit a
+>> .png file.)
+此图表示A、B、C三个线程的嵌套捐赠情况，线程右边括号中的数字代表想要请求的锁。其中，每个单元中的第一行表示优先级，
+若优先级右上角标注有*，表示该线程持有CPU；每个单元的第二行持有的锁队列。从上往下，表示随着时间推进每个线程的状态。
+
+  A(1)    B(2)     C
++-------+-------+-------+
+|  31   |  32*  |  30   |
+|  2    |  None |   1   |
++-------+-------+-------+
+|  32*  |  32   |  30   |
+|  2    |  None |   1   |
++-------+-------+-------+
+|  32   |  32   |  32 * |
+|  2    |  None |   1   |
++-------+-------+-------+
+|  32*  |  32   |  30   |
+|  1,2  |  None |  None |
++-------+-------+-------+
+|  31   |  32*  |  30   |
+|  1    |  2    |  None |
++-------+-------+-------+
+
+---- ALGORITHMS ----
+//如何确保等待锁，信号量、条件变量的优先级最高的线程最先被唤醒？
+>> B3: How do you ensure that the highest priority thread waiting for
+>> a lock, semaphore, or condition variable wakes up first?
+在创建线程、改变线程优先级后调用list_insert_ordered()，将线程插入按序插入非递减就绪队列，
+当锁处于空闲状态时，使用list_min()调用就绪队列中的第一个线程，也就是优先级最高的线程，
+就可使确保等待锁，信号量、条件变量的优先级最高的线程最先被唤醒。
+
+//描述当lock_acquire()被调用时的优先级捐赠的事件顺序，并说明有嵌套捐赠时的情况。
+>> B4: Describe the sequence of events when a call to lock_acquire()
+>> causes a priority donation.  How is nested donation handled?
+调用lock_acquire()时，如果持有锁的线程优先级低于当前线程，将持有锁的线程的优先级提升至和当前线程优先级一样，
+并阻塞当前线程。当请求锁的线程的优先级大于持有锁的线程的优先级的时候，就会存在嵌套情况。
+出现嵌套时，每一层持有锁的线程的优先级会提升到和请求锁的线程的优先级一样，最终，最底层持有锁的线程的优先级被提升到最高并首先得到CPU的使用权。
+在该锁释放后，请求该锁的线程就会得到CPU，以此类推。例如，有三个线程A、B和C，优先级分别为31、32、30。A持有锁2，但请求锁1；
+B请求锁2;C持有锁1。此时，B的优先级最高，因此B持有CPU，当B调用lock_acquire()时，A的优先级会被提升至32并阻塞B。
+此时，A持有CPU。然后A调用lock_acquire()，C的优先级就会被提升至32并持有CPU，A会被被阻塞。C线程得到CPU后就可以释放锁并让A处于就绪状态，
+重新调度后A获得CPU并得到锁1。在A释放锁1后，使B处于就绪状态，重新调度后B就能获得CPU并得到锁2。
+
+
+//描述当较高优先级线程等待的锁被调用lock_release()时的事件顺序。
+>> B5: Describe the sequence of events when lock_release() is called
+>> on a lock that a higher-priority thread is waiting for.
+当较高优先级线程等待的锁被调用lock_release()时，会先将锁的持有者的值lock_holder置为空，并将锁从持有锁的线程的锁队列中移除。
+溢出该锁后，如果持有锁的线程的锁队列中没有锁了，将该线程的优先级恢复为原始状态；如果持有锁的线程的锁队列中还有锁，
+将该线程的优先级更新为和锁队列中优先级最高的锁的优先级一样。然后让被释放的锁的信号量增加1，并执行thread_yield()，
+按照优先级从高到低重新调度线程，位于就绪队列第一个的线程，也就是优先级最高的线程将首先获得该锁。
+
+---- SYNCHRONIZATION ----
+//描述thread_set_priority()中潜在的竞争 并 说明如何避免。可以通过使用一个锁去避免这种情况吗？
+>> B6: Describe a potential race in thread_set_priority() and explain
+>> how your implementation avoids it.  Can you use a lock to avoid
+>> this race?
+当一个线程进行优先级捐赠后并将自身的优先级提高至A1，但在锁还未释放时就调用thread_set_priority()设置线程的优先级为A2(A1>A2)，
+此时降低线程的优先级会导致死锁问题。
+当需要通过thread_set_priority()设置的优先级大于线程当时的优先级或者当前线程持有锁的列表为空时才能更新线程的优先级。
+
+
+---- RATIONALE ----
+//为什么选择这种设计？ 它在什么方面优于您考虑的另一种设计？
+>> B7: Why did you choose this design?  In what ways is it superior to
+>> another design you considered?
+该设计逻辑清晰，思路简洁，达到了防止死锁、实现优先级捐赠的目的。该设计能够保证每一个线程在进行优先级捐赠时都是原子操作，
+也就是说，不会出现被中断的情况。同时，提高了CPU的使用效率，防止CPU被过多的浪费。
+
+              ADVANCED SCHEDULER
+              ==================
+
+---- DATA STRUCTURES ----
+//记录更新的结构体、结构成员(struct member?)、全局变量、静态变量、typeof、枚举 & 说明他们的目的
+>> C1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+"thread"是线程结构体。新增的成员变量recent_cpu是对线程最近一段时间内使用CPU的时间估计。
+新增成员变量nice，可以是0到20之间的任何一个正整数值。用于在计算时降低线程的优先级并让出CPU。
+
+/*thread/
+struct thread
+  {
+    /* Owned by thread.c. */
+    tid_t tid;                          
+    enum thread_status status;          
+    char name[16];                      
+    uint8_t *stack;                     
+    int priority;                       
+    struct list_elem allelem;           
+    int64_t block_period;               
+    int old_priority;                     
+    struct list hold_locks;               
+    struct lock* waiting_lock;            
+    struct list_elem elem;              
+    int nice;                         /*added*/    
+    int64_t recent_cpu;               /*added*/        
+
+#ifdef USERPROG
+    /* Owned by userprog/process.c. */
+    uint32_t *pagedir;                  
+#endif
+
+    /* Owned by thread.c. */
+    unsigned magic;                     
+  };
+
+	"load_avg"是一个全局变量，用于衡量系统的负载，是对过去一分钟内就绪线程数的一个估计值。
+
+  int64_t load_avg = INT_TO_FP(0);  
+
+---- ALGORITHMS ----
+//假设线程A，B和C的值分别为0、1和2。每个线程的recent_cpu值都为0。填写下表的调度决策、优先级、每个线程在给定的时间片后的recent_cpu值。
+>> C2: Suppose threads A, B, and C have nice values 0, 1, and 2.  Each
+>> has a recent_cpu value of 0.  Fill in the table below showing the
+>> scheduling decision and the priority and recent_cpu values for each
+>> thread after each given number of timer ticks:
+
+timer  recent_cpu    priority   thread
+ticks   A   B   C   A   B   C   to run
+-----  --  --  --  --  --  --   ------
+ 0       0   0   0   63 61 59     A
+ 4       4   0   0   62 61 59     A
+ 8       8   0   0   61 61 59     A
+12       12  0   0   60 61 59     B
+16       12  4   0   60 60 59     B
+20       12  8   0   60 59 59     A
+24       16  8   0   59 59 59     A
+28       20  8   0   58 59 59     B
+32       20  12  0   58 58 59     C
+36       20  12  4   58 58 58     C
+
+//有没有调度程序规范(scheduler specification?)中的歧义使得表中的值有多种可能？如果有，怎么解决？这种解决方法与你的调度程序一致吗？
+>> C3: Did any ambiguities in the scheduler specification make values
+>> in the table uncertain?  If so, what rule did you use to resolve
+>> them?  Does this match the behavior of your scheduler?
+（1）两个线程优先级相同时，其运行顺序是不确定的。
+（2）轮询规则：如果多个线程具有相同优先级，那么选择就绪队列中的第一个（顺序为从首部向后遍历）线程运行。
+如果某一线程优先级改变，那么该线程将被放到就绪队列中具有相同优先级的线程的最前面。
+（3）这一规则和我的scheduler相匹配。
+
+//如何在给可能影响程序性能的 内中断和外中断(between code inside and outside interrupt context?) 分配调度成本？
+>> C4: How is the way you divided the cost of scheduling between code
+>> inside and outside interrupt context likely to affect performance?
+如果时钟中断内的调度程序过多（包括重新计算load_avg，recent_cpu和优先级），那么每当一个时间中断开始的时候，
+CPU都会执行这些调度程序，这样一来就会占用本来应当分配给线程的时间（片），即线程的运行时间减少，
+从而导致线程不得不占用下一个时间片的一些时间，体现的效果就是线程的工作时间“延长”，从而影响性能。
+因此，如果时钟中断内的调度过多，性能就有可能降低。
+
+---- RATIONALE ----
+//简要评析你的设计 & 指出设计中的优缺点 & 如何完善设计
+>> C5: Briefly critique your design, pointing out advantages and
+>> disadvantages in your design choices.  If you were to have extra
+>> time to work on this part of the project, how might you choose to
+>> refine or improve your design?
+我们会将计算recent_cpu这一函数中计算优先级的操作放到函数外面。
+因为在计算recent_cpu时即重新计算了优先级，而在timer_interrupt中编写代码时，我们曾忽略了这一点，
+认为只有timer_interrupt和set_nice函数中才会出现重新计算优先级的操作，因此耽搁了一些时间。
+
+//作业详细说明了fixed-point math，但是你可以有多种方式去实现它。你为什么决定以这种方式去实现它？
+//如果你为fixed-point math创建了一个抽象层（即一个抽象数据类型/一组函数或宏来操纵fixed-point math），为什么要这么做？ 如果没有，为什么不这么做？
+>> C6: The assignment explains arithmetic for fixed-point math in
+>> detail, but it leaves it open to you to implement it.  Why did you
+>> decide to implement it the way you did?  If you created an
+>> abstraction layer for fixed-point math, that is, an abstract data
+>> type and/or a set of functions or macros to manipulate fixed-point
+>> numbers, why did you do so?  If not, why not?
+（1）我们把文档上的乘除改为了移位操作。因为相对于乘除，移位操作产生的开销会更小。
+（2）没有定义一个新的类型。因为用现有的数据类型（int64_t）即可解决问题。如果定义一个新的数据类型，
+有可能会造成浮点运算中的类型不匹配（忘记转换类型）导致程序运行错误。因此如果有更多的时间，
+我们或许会给浮点数定义一个新的数据类型。
+
+               SURVEY QUESTIONS
+               ================
+//非必选填写
+Answering these questions is optional, but it will help us improve the
+course in future quarters.  Feel free to tell us anything you
+want--these questions are just to spur your thoughts.  You may also
+choose to respond anonymously in the course evaluations at the end of
+the quarter.
+//这项作业或是其中的某一个问题是否过易或过难？ 花费的时间是否太长或太少？
+>> In your opinion, was this assignment, or any one of the three problems
+>> in it, too easy or too hard?  Did it take too long or too little time?
+//完成作业的某些部分是否可以使你对操作系统设计的某些方面有更深入的了解？
+>> Did you find that working on a particular part of the assignment gave
+>> you greater insight into some aspect of OS design?
+//有什么提示是需要我们给之后的学生提供的，以便帮助他们解决问题？是否发现我们的任何指导有误导性？
+>> Is there some particular fact or hint we should give students in
+>> future quarters to help them solve the problems?  Conversely, did you
+>> find any of our guidance to be misleading?
+//是否对要TA提出建议，以帮助之后的学生或剩余的项目？
+>> Do you have any suggestions for the TAs to more effectively assist
+>> students, either for future quarters or the remaining projects?
+
+>> Any other comments?

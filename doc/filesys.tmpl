@@ -1,0 +1,255 @@
+             +-------------------------+
+             |         CS 140          |
+             | PROJECT 4: FILE SYSTEMS |
+             |     DESIGN DOCUMENT     |
+             +-------------------------+
+
+---- GROUP ----
+
+>> Fill in the names and email addresses of your group members.
+
+FirstName LastName <email@domain.example>
+FirstName LastName <email@domain.example>
+FirstName LastName <email@domain.example>
+
+---- PRELIMINARIES ----
+//前提
+>> If you have any preliminary comments on your submission, notes for the
+>> TAs, or extra credit, please give them here.
+
+>> Please cite any offline or online sources you consulted while
+>> preparing your submission, other than the Pintos documentation, course
+>> text, lecture notes, and course staff.
+
+             INDEXED AND EXTENSIBLE FILES//索引文件和可扩展文件
+             ============================
+
+---- DATA STRUCTURES ----
+//更改过的结构体、变量、typeof、枚举 并 说明用处
+>> A1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+>> A2: What is the maximum size of a file supported by your inode
+>> structure?  Show your work.
+
+---- SYNCHRONIZATION ----
+//说明如果两个进程尝试执行代码，代码如何避免竞争。
+>> A3: Explain how your code avoids a race if two processes attempt to
+>> extend a file at the same time.
+//假设进程A和B都打开了文件F，都位于文件末尾。如果A读B相同到时候，A可能会读取B的全部，部分或全部内容。 但是，A可能无法读取除B所写内容以外的数据。
+>> A4: Suppose processes A and B both have file F open, both
+>> positioned at end-of-file.  If A reads and B writes F at the same
+>> time, A may read all, part, or none of what B writes.  However, A
+>> may not read data other than what B writes, e.g. if B writes
+>> nonzero data, A is not allowed to see all zeros.  Explain how your
+>> code avoids this race.
+
+>> A5: Explain how your synchronization design provides "fairness".
+>> File access is "fair" if readers cannot indefinitely block writers
+>> or vice versa.  That is, many processes reading from a file cannot
+>> prevent forever another process from writing the file, and many
+>> processes writing to a file cannot prevent another process forever
+>> from reading the file.
+
+---- RATIONALE ----
+
+>> A6: Is your inode structure a multilevel index?  If so, why did you
+>> choose this particular combination of direct, indirect, and doubly
+>> indirect blocks?  If not, why did you choose an alternative inode
+>> structure, and what advantages and disadvantages does your
+>> structure have, compared to a multilevel index?
+
+                SUBDIRECTORIES//子目录
+                ==============
+
+---- DATA STRUCTURES ----
+
+>> B1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+---- ALGORITHMS ----
+
+>> B2: Describe your code for traversing a user-specified path.  How
+>> do traversals of absolute and relative paths differ?
+
+---- SYNCHRONIZATION ----
+
+>> B4: How do you prevent races on directory entries?  For example,
+>> only one of two simultaneous attempts to remove a single file
+>> should succeed, as should only one of two simultaneous attempts to
+>> create a file with the same name, and so on.
+
+>> B5: Does your implementation allow a directory to be removed if it
+>> is open by a process or if it is in use as a process's current
+>> working directory?  If so, what happens to that process's future
+>> file system operations?  If not, how do you prevent it?
+
+---- RATIONALE ----
+
+>> B6: Explain why you chose to represent the current directory of a
+>> process the way you did.
+
+                 BUFFER CACHE//缓冲区缓存
+                 ============
+
+---- DATA STRUCTURES ----
+
+>> C1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+---- ALGORITHMS ----
+//描述您的缓存替换算法如何选择缓存阻止驱逐
+>> C2: Describe how your cache replacement algorithm chooses a cache
+>> block to evict.
+
+>> C3: Describe your implementation of write-behind.
+
+>> C4: Describe your implementation of read-ahead.
+
+---- SYNCHRONIZATION ----
+
+>> C5: When one process is actively reading or writing data in a
+>> buffer cache block, how are other processes prevented from evicting
+>> that block?
+
+>> C6: During the eviction of a block from the cache, how are other
+>> processes prevented from attempting to access the block?
+
+---- RATIONALE ----
+
+>> C7: Describe a file workload likely to benefit from buffer caching,
+>> and workloads likely to benefit from read-ahead and write-behind.
+
+               SURVEY QUESTIONS//调查问卷
+               ================
+
+Answering these questions is optional, but it will help us improve the
+course in future quarters.  Feel free to tell us anything you
+want--these questions are just to spur your thoughts.  You may also
+choose to respond anonymously in the course evaluations at the end of
+the quarter.
+
+>> In your opinion, was this assignment, or any one of the three problems
+>> in it, too easy or too hard?  Did it take too long or too little time?
+
+>> Did you find that working on a particular part of the assignment gave
+>> you greater insight into some aspect of OS design?
+
+>> Is there some particular fact or hint we should give students in
+>> future quarters to help them solve the problems?  Conversely, did you
+>> find any of our guidance to be misleading?
+
+>> Do you have any suggestions for the TAs to more effectively assist
+>> students in future quarters?
+
+>> Any other comments?
+
+//Project1文档样例
+
+ 	
+                         +-----------------+
+                         |      CS 140     |
+                         |  SAMPLE PROJECT |
+                         | DESIGN DOCUMENT |
+                         +-----------------+
+
+---- GROUP ----
+
+Ben Pfaff <blp@stanford.edu>
+
+---- PRELIMINARIES ----
+
+>> If you have any preliminary comments on your submission, notes for
+>> the TAs, or extra credit, please give them here.
+
+(This is a sample design document.)
+
+>> Please cite any offline or online sources you consulted while
+>> preparing your submission, other than the Pintos documentation,
+>> course text, and lecture notes.
+
+None.
+
+                                 JOIN
+                                 ====
+
+---- DATA STRUCTURES ----
+
+>> Copy here the declaration of each new or changed `struct' or `struct'
+>> member, global or static variable, `typedef', or enumeration.
+>> Identify the purpose of each in 25 words or less.
+
+A "latch" is a new synchronization primitive.  Acquires block
+until the first release.  Afterward, all ongoing and future
+acquires pass immediately.
+
+    /* Latch. */
+    struct latch 
+      {
+        bool released;              /* Released yet? */
+        struct lock monitor_lock;   /* Monitor lock. */
+        struct condition rel_cond;  /* Signaled when released. */
+      };
+
+Added to struct thread:
+
+    /* Members for implementing thread_join(). */
+    struct latch ready_to_die;   /* Release when thread about to die. */
+    struct semaphore can_die;    /* Up when thread allowed to die. */
+    struct list children;        /* List of child threads. */
+    list_elem children_elem;     /* Element of `children' list. */
+
+---- ALGORITHMS ----
+
+>> Briefly describe your implementation of thread_join() and how it
+>> interacts with thread termination.
+
+thread_join() finds the joined child on the thread's list of
+children and waits for the child to exit by acquiring the child's
+ready_to_die latch.  When thread_exit() is called, the thread
+releases its ready_to_die latch, allowing the parent to continue.
+
+---- SYNCHRONIZATION ----
+
+>> Consider parent thread P with child thread C.  How do you ensure
+>> proper synchronization and avoid race conditions when P calls wait(C)
+>> before C exits?  After C exits?  How do you ensure that all resources
+>> are freed in each case?  How about when P terminates without waiting,
+>> before C exits?  After C exits?  Are there any special cases?
+
+C waits in thread_exit() for P to die before it finishes its own
+exit, using the can_die semaphore "down"ed by C and "up"ed by P as
+it exits.  Regardless of whether whether C has terminated, there
+is no race on wait(C), because C waits for P's permission before
+it frees itself.
+
+Regardless of whether P waits for C, P still "up"s C's can_die
+semaphore when P dies, so C will always be freed.  (However,
+freeing C's resources is delayed until P's death.)
+
+The initial thread is a special case because it has no parent to
+wait for it or to "up" its can_die semaphore.  Therefore, its
+can_die semaphore is initialized to 1.
+
+---- RATIONALE ----
+
+>> Critique your design, pointing out advantages and disadvantages in
+>> your design choices.
+
+This design has the advantage of simplicity.  Encapsulating most
+of the synchronization logic into a new "latch" structure
+abstracts what little complexity there is into a separate layer,
+making the design easier to reason about.  Also, all the new data
+members are in `struct thread', with no need for any extra dynamic
+allocation, etc., that would require extra management code.
+
+On the other hand, this design is wasteful in that a child thread
+cannot free itself before its parent has terminated.  A parent
+thread that creates a large number of short-lived child threads
+could unnecessarily exhaust kernel memory.  This is probably
+acceptable for implementing kernel threads, but it may be a bad
+idea for use with user processes because of the larger number of
+resources that user processes tend to own.
