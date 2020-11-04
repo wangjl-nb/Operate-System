@@ -49,7 +49,7 @@ syscall_init (void)
     pfn[SYS_CLOSE]=IClose;
     pfn[SYS_READ]=IRead;
     pfn[SYS_FILESIZE]=IFileSize;
-    // pfn[SYS_EXEC]=IExec;
+    pfn[SYS_EXEC]=IExec;
     pfn[SYS_WAIT]=IWait;
     // pfn[SYS_SEEK]=ISeek;
     pfn[SYS_REMOVE]=IRemove;
@@ -133,28 +133,28 @@ void ExitStatus(int status){//进程异常时调用
   thread_exit();
 }
 
-// void IExec(struct intr_frame *f)
-// {
-//   if (!is_user_vaddr(((int *)f->esp) + 2))
-//     ExitStatus(-1);
-//   const char *file = (char *)*((int *)f->esp + 1);
-//   tid_t tid = -1;
-//   if (file == NULL)
-//   {
-//     f->eax = -1;
-//     return;
-//   }
-//   char *newfile = (char *)malloc(sizeof(char) * (strlen(file) + 1));
+void IExec(struct intr_frame *f)
+{
+  if (!is_user_vaddr(((int *)f->esp) + 2))
+    ExitStatus(-1);
+  const char *file = (char *)*((int *)f->esp + 1);
+  tid_t tid = -1;
+  if (file == NULL||file_open(file)==NULL)
+  {
+    f->eax = -1;
+    return;
+  }
+  char *newfile = (char *)malloc(sizeof(char) * (strlen(file) + 1));
 
-//   memcpy(newfile, file, strlen(file) + 1);
-//   tid = process_execute(newfile);
-//   struct thread *t = GetThreadFromTid(tid);
-//   sema_down(&t->SemaWaitSuccess);
-//   f->eax = t->tid;
-//   t->father->sons++;
-//   free(newfile);
-//   sema_up(&t->SemaWaitSuccess);
-// }
+  memcpy(newfile, file, strlen(file) + 1);
+  tid = process_execute(newfile);
+  struct thread *t = GetThreadFromTid(tid);
+  // sema_down(&t->SemaWaitSuccess);
+  f->eax = t->tid;
+  // t->father->sons++;
+  free(newfile);
+  // sema_up(&t->SemaWaitSuccess);
+}
 
 void ICreate(struct intr_frame *f) //两个参数
 {
