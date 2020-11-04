@@ -47,12 +47,12 @@ syscall_init (void)
     pfn[SYS_CREATE]=ICreate;//创建文件
     pfn[SYS_OPEN]=IOpen;//打开文件
     pfn[SYS_CLOSE]=IClose;
-    // pfn[SYS_READ]=IRead;
-    // pfn[SYS_FILESIZE]=IFileSize;
+    pfn[SYS_READ]=IRead;
+    pfn[SYS_FILESIZE]=IFileSize;
     // pfn[SYS_EXEC]=IExec;
     pfn[SYS_WAIT]=IWait;
     // pfn[SYS_SEEK]=ISeek;
-    // pfn[SYS_REMOVE]=IRemove;
+    pfn[SYS_REMOVE]=IRemove;
     // pfn[SYS_TELL]=ITell;
     pfn[SYS_HALT]=IHalt;
 }
@@ -80,28 +80,28 @@ void IWrite(struct intr_frame *f){//三个参数
   int *esp=(int *)f->esp;
   if(!is_user_vaddr(esp+7))
     ExitStatus(-1);
-  // int fd=*(esp+1);//
+  int fd=*(esp+1);//
   char *buffer=(char *)*(esp+2); 
   unsigned size=*(esp+3);
 
-  // if (fd == STDOUT_FILENO)
-  // {
+  if (fd == STDOUT_FILENO)
+  {
   //   printf("123\n");
   // printf("fd:%d  \n",fd);
-  putbuf(buffer,size);
-  f->eax=0;
-  // }
-  // else
-  // {
-    // struct thread *cur = thread_current();
-    // struct file_node *fn = GetFile(cur, fd); //获取文件指针
-    // if (fn == NULL)
-    // {
-    //   f->eax = 0;
-    //   return;
-    // }
-    // f->eax = file_write(fn->f, buffer, size); //写文件
-  // }
+    putbuf(buffer,size);
+    f->eax=0;
+  }
+  else
+  {
+    struct thread *cur = thread_current();
+    struct file_node *fn = GetFile(cur, fd); //获取文件指针
+    if (fn == NULL)
+    {
+      f->eax = 0;
+      return;
+    }
+    f->eax = file_write(fn->f, buffer, size); //写文件
+  }
 }
 
 void IWait(struct intr_frame *f)
@@ -228,7 +228,7 @@ void IClose(struct intr_frame *f)
 int CloseFile(struct thread *t, int fd, int bAll)
 {
   struct list_elem *e, *p;
-  if (bAll)
+  if (bAll)//关闭所有文件
   {
     while (!list_empty(&t->file_list))
     {
@@ -240,7 +240,7 @@ int CloseFile(struct thread *t, int fd, int bAll)
     return 0;
   }
 
-  for (e = list_begin(&t->file_list); e != list_end(&t->file_list);)
+  for (e = list_begin(&t->file_list); e != list_end(&t->file_list);)//关闭指定文件
   {
     struct file_node *fn = list_entry(e, struct file_node, elem);
     if (fn->fd == fd)
@@ -255,4 +255,62 @@ int CloseFile(struct thread *t, int fd, int bAll)
       return 0;
     }
   }
+}
+
+void IRemove(struct intr_frame *f)
+{
+  if (!is_user_vaddr(((int *)f->esp) + 2))
+    ExitStatus(-1);
+  char *fl = (char *)*((int *)f->esp + 1);
+  f->eax = filesys_remove(fl);
+}
+
+void IRead(struct intr_frame *f)
+{
+  int *esp = (int *)f->esp;
+  if (!is_user_vaddr(esp + 7))
+    ExitStatus(-1);
+  int fd = *(esp + 1);
+  char *buffer = (char *)*(esp + 2);
+  unsigned size = *(esp + 3);
+
+  if (buffer == NULL || !is_user_vaddr(buffer + size))
+  {
+    f->eax = -1;
+    ExitStatus(-1);
+  }
+
+  struct thread *cur = thread_current();
+  struct file_node *fn = NULL;
+  unsigned int i;
+  if (fd == STDIN_FILENO) //从标准输入设备读
+  {
+    for (i = 0; i < size; i++)
+      buffer[i] = input_getc();
+  }
+  else //从文件读
+  {
+    fn = GetFile(cur, fd); //获取文件指针
+    if (fn == NULL)
+    {
+      f->eax = -1;
+      return;
+    }
+    f->eax = file_read(fn->f, buffer, size);
+  }
+}
+
+void IFileSize(struct intr_frame *f)
+{
+  if (!is_user_vaddr(((int *)f->esp) + 2))
+    ExitStatus(-1);
+  struct thread *cur = thread_current();
+  int fd = *((int *)f->esp + 1);
+  struct file_node *fn = GetFile(cur, fd);
+  if (fn == NULL)
+  {
+    f->eax = -1;
+    return;
+  }
+  f->eax = file_length(fn->f);
 }
