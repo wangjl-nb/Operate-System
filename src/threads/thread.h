@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/synch.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -24,7 +25,7 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
-/* A kernel thread or user process.
+/* A kernel thread or user process. 4kb大小的页
 
    Each thread structure is stored in its own 4 kB page.  The
    thread structure itself sits at the very bottom of the page
@@ -97,14 +98,45 @@ struct thread
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
 #endif
+    int ret;//存储返回状态
+    int FileNum;
+    struct list file_list;
+    int maxfd;
+    struct list sons_ret;
+    bool bWait;
+    bool SaveData;
+    struct thread *father;
+    struct semaphore SemaWaitSuccess;
+    struct semaphore SemaWait;
 
-    /* Owned by thread.c. */
-    unsigned magic;                     /* Detects stack overflow. */
+   /* Owned by thread.c. */
+   unsigned magic; /* Detects stack overflow. */
+
+   //Needed for wait/ exec sysy calls
+   // struct list child_list;
+   // tid_t parent;
+   // struct thread* child_process;
   };
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
+
+struct file_node
+{
+   int fd;
+   struct list_elem elem;
+   struct file *f;
+};
+
+
+struct ret_data
+{
+   int pid;
+   int ret;
+   struct list_elem elem;
+};
+
 extern bool thread_mlfqs;
 
 void thread_init (void);
@@ -112,6 +144,8 @@ void thread_start (void);
 
 void thread_tick (void);
 void thread_print_stats (void);
+
+struct thread *GetThreadFromTid(tid_t child_tid);
 
 typedef void thread_func (void *aux);
 tid_t thread_create (const char *name, int priority, thread_func *, void *);

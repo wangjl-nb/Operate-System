@@ -281,11 +281,11 @@ parse_options (char **argv)
 static void
 run_task (char **argv)
 {
-  const char *task = argv[1];
+  const char *task = argv[1];//文件名包括参数
   
   printf ("Executing '%s':\n", task);
 #ifdef USERPROG
-  process_wait (process_execute (task));
+  process_wait (process_execute (task));//加载用户线程，并且让主线程等待用户线程执行完毕
 #else
   run_test (task);
 #endif

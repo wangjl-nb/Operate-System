@@ -95,7 +95,7 @@ thread_init (void)
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
-  init_thread (initial_thread, "main", PRI_DEFAULT);
+  init_thread (initial_thread, "main", PRI_DEFAULT);//初始化主线程
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
 }
@@ -282,7 +282,7 @@ thread_exit (void)
 {
   ASSERT (!intr_context ());
 
-#ifdef USERPROG
+#ifdef USERPROG//如果是用户进程
   process_exit ();
 #endif
 
@@ -313,7 +313,23 @@ thread_yield (void)
   schedule ();
   intr_set_level (old_level);
 }
-
+struct thread *GetThreadFromTid(tid_t child_tid)
+{
+  // printf("%d\n",child_tid);
+  struct list_elem *e;
+  struct thread* ret=NULL;
+  for (e = list_begin(&all_list); e != list_end(&all_list); e = list_next(e))
+  {   
+    struct thread *tmp=list_entry(e,struct thread,allelem);
+    // printf("%d\n", tmp->tid); 
+    if (tmp->tid == child_tid)
+    {
+      ret=tmp;
+      break;
+    }
+  }
+  return ret;
+}
 /* Invoke function 'func' on all threads, passing along 'aux'.
    This function must be called with interrupts off. */
 void
@@ -463,7 +479,14 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  t->ret=0;//初始化为0
+  t->SaveData=false;
+  t->maxfd=1;
+  t->FileNum=0;
+  list_init(&t->file_list);
+  list_init(&t->sons_ret);
 
+  sema_init(&t->SemaWait, 0);
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
