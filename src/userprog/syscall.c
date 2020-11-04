@@ -46,7 +46,7 @@ syscall_init (void)
     pfn[SYS_EXIT]=IExit;//退出线程
     pfn[SYS_CREATE]=ICreate;//创建文件
     pfn[SYS_OPEN]=IOpen;//打开文件
-    // pfn[SYS_CLOSE]=IClose;
+    pfn[SYS_CLOSE]=IClose;
     // pfn[SYS_READ]=IRead;
     // pfn[SYS_FILESIZE]=IFileSize;
     // pfn[SYS_EXEC]=IExec;
@@ -73,15 +73,15 @@ syscall_handler (struct intr_frame *f UNUSED) //系统调用
     ExitStatus(-1);
   }
   // printf("system call!\n");
-  pfn[No](f);
+  pfn[No](f);//调用函数
 }
 
 void IWrite(struct intr_frame *f){//三个参数
   int *esp=(int *)f->esp;
   if(!is_user_vaddr(esp+7))
     ExitStatus(-1);
-  int fd=*(esp+2);
-  char *buffer=(char *)*(esp+6); 
+  // int fd=*(esp+1);//
+  char *buffer=(char *)*(esp+2); 
   unsigned size=*(esp+3);
 
   // if (fd == STDOUT_FILENO)
@@ -214,4 +214,45 @@ void IHalt(struct intr_frame *f)
 {
   shutdown_power_off();
   f->eax = 0;
+}
+
+void IClose(struct intr_frame *f)
+{
+  if (!is_user_vaddr(((int *)f->esp) + 2))
+    ExitStatus(-1);
+  struct thread *cur = thread_current();
+  int fd = *((int *)f->esp + 1);
+  f->eax = CloseFile(cur, fd, false);//return值
+}
+
+int CloseFile(struct thread *t, int fd, int bAll)
+{
+  struct list_elem *e, *p;
+  if (bAll)
+  {
+    while (!list_empty(&t->file_list))
+    {
+      struct file_node *fn = list_entry(list_pop_front(&t->file_list), struct file_node, elem);
+      file_close(fn->f);
+      free(fn);
+    }
+    t->FileNum = 0;
+    return 0;
+  }
+
+  for (e = list_begin(&t->file_list); e != list_end(&t->file_list);)
+  {
+    struct file_node *fn = list_entry(e, struct file_node, elem);
+    if (fn->fd == fd)
+    {
+      list_remove(e);
+      if (fd == t->maxfd)
+        t->maxfd--;
+      t->FileNum--;
+      file_close(fn->f);
+      free(fn);
+
+      return 0;
+    }
+  }
 }

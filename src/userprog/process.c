@@ -27,14 +27,14 @@ static bool load(const char *cmdline, void (**eip)(void), void **esp);
    before process_execute() returns.  Returns the new process's
    thread id, or TID_ERROR if the thread cannot be created. */
 tid_t
-process_execute(const char *file_name)//执行线程
+process_execute(const char *file_name)//执行线程，file_name就是输入的包括参数的一长串指令
 {
   char *fn_copy;
-  tid_t tid;
+  tid_t tid;//存储用户线程的tid
   // printf("%s\n",file_name);
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
-  fn_copy = palloc_get_page(0);
+  fn_copy = palloc_get_page(0);//分配页
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy(fn_copy, file_name, PGSIZE);//复制参数
@@ -72,7 +72,7 @@ start_process(void *file_name_)//file_name包括了参数，所以要在此对�
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;//加载用户线程
-  success = load(token, &if_.eip, &if_.esp);//file_name->token
+  success = load(token, &if_.eip, &if_.esp);//file_name->token，装在用户线程
   struct thread *t=thread_current();
   /* If load failed, quit. */
   if (!success){//加载失败就退出
