@@ -108,6 +108,7 @@ struct thread
     struct thread *father;
     struct semaphore SemaWaitSuccess;
     struct semaphore SemaWait;
+    struct file* FileSelf;
 
    /* Owned by thread.c. */
    unsigned magic; /* Detects stack overflow. */
@@ -146,6 +147,7 @@ void thread_tick (void);
 void thread_print_stats (void);
 
 struct thread *GetThreadFromTid(tid_t child_tid);
+int GetRetFromSonsList(struct thread *t,tid_t tid);
 
 typedef void thread_func (void *aux);
 tid_t thread_create (const char *name, int priority, thread_func *, void *);

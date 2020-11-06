@@ -81,10 +81,12 @@ start_process(void *file_name_)//file_name包括了参数，所以要在此对�
     // printf("load fail!!!!!\n");
     // thread_exit();
     t->tid=-1;
-    // sema_up(&t->SemaWaitSuccess);
+    sema_up(&t->SemaWaitSuccess);
     ExitStatus(-1);
   }
-  // sema_up(&t->SemaWaitSuccess);
+  sema_up(&t->SemaWaitSuccess);
+  t->FileSelf=filesys_open(token);
+  file_deny_write(t->FileSelf);
   /*添加*/
   char *esp=(char *)if_.esp;//栈顶指针
   char *arg[256];//最大参数数目
@@ -108,6 +110,8 @@ start_process(void *file_name_)//file_name包括了参数，所以要在此对�
       }
       return ret;
     }*/
+
+
   }
   while((int)esp%4){//对齐
     esp--;
@@ -147,15 +151,21 @@ start_process(void *file_name_)//file_name包括了参数，所以要在此对�
    does nothing. */
 int process_wait(tid_t child_tid UNUSED)//需要修改！
 {
-  // while(true){
-    // printf("1");
-  // };
   struct thread *t=GetThreadFromTid(child_tid);
-  sema_down(&t->father->SemaWait);//使得线程的父线程能够等待线程执行完毕
-  // if(t->father!=NULL){
-    // printf("%d\n",t->father->SemaWait->value);
-  // }
-  return -1;
+    if(t==NULL||t->status==THREAD_DYING || t->SaveData)  //子进程已经把返回值保存到Sons_ret链表中了
+  {
+      int ret=-1;
+      ret=GetRetFromSonsList(thread_current(),child_tid);  //从sons_ret中取回子进程的返回值
+
+      return ret;
+  }
+  t->bWait=true;
+  sema_down(&t->father->SemaWait);                      //在这个信号量上等。
+  int ret=-1;
+    ret=GetRetFromSonsList(thread_current(),child_tid);
+
+  return ret;
+
 }
 
 /* Free the current process's resources. 释放进程资源*/
@@ -176,14 +186,37 @@ void process_exit(void)
          directory before destroying the process's page
          directory, or our active page directory will be one
          that's been freed (and cleared). */
+    CloseFile(cur,-1,true);  //关闭打开的文件
+    if(cur->FileSelf!=NULL)  //撤销对自己人deny_write
+    {
+        file_allow_write(cur->FileSelf);
+        file_close (cur->FileSelf);
+    }
     printf("%s: exit(%d)\n",cur->name, cur->ret);
-    if(cur->father!=NULL){
-      sema_up(&cur->father->SemaWait);
+    record_ret(cur->father,cur->tid,cur->ret); //保存返回值到父进程
+    cur->SaveData=true;
+    if(cur->father!=NULL&&cur->bWait)  //如果有父进程在等就唤醒他
+    {
+      while(!list_empty(&cur->father->SemaWait.waiters))
+        sema_up(&cur->father->SemaWait);
+    }
+    while(!list_empty(&cur->sons_ret))    //释放孩子返回值链表
+    {
+      struct ret_data *rd=list_entry(list_pop_front(&cur->sons_ret),struct ret_data,elem);
+      free(rd);
     }
     cur->pagedir = NULL;
-    pagedir_activate(NULL);
-    pagedir_destroy(pd);
+    pagedir_activate (NULL);
+    pagedir_destroy (pd);
   }
+}
+
+void record_ret(struct thread *t,int tid,int ret)
+{
+    struct ret_data *rd=(struct ret_data *)malloc(sizeof(struct ret_data));
+    rd->ret=ret;
+    rd->pid=tid;
+    list_push_back(&t->sons_ret,&rd->elem);
 }
 
 /* Sets up the CPU for running user code in the current

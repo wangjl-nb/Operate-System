@@ -51,9 +51,9 @@ syscall_init (void)
     pfn[SYS_FILESIZE]=IFileSize;
     pfn[SYS_EXEC]=IExec;
     pfn[SYS_WAIT]=IWait;
-    // pfn[SYS_SEEK]=ISeek;
+    pfn[SYS_SEEK]=ISeek;
     pfn[SYS_REMOVE]=IRemove;
-    // pfn[SYS_TELL]=ITell;
+    pfn[SYS_TELL]=ITell;
     pfn[SYS_HALT]=IHalt;
 }
 
@@ -149,11 +149,11 @@ void IExec(struct intr_frame *f)
   memcpy(newfile, file, strlen(file) + 1);
   tid = process_execute(newfile);
   struct thread *t = GetThreadFromTid(tid);
-  // sema_down(&t->SemaWaitSuccess);
+  sema_down(&t->SemaWaitSuccess);
   f->eax = t->tid;
   // t->father->sons++;
   free(newfile);
-  // sema_up(&t->SemaWaitSuccess);
+  sema_up(&t->SemaWaitSuccess);
 }
 
 void ICreate(struct intr_frame *f) //两个参数
@@ -313,4 +313,29 @@ void IFileSize(struct intr_frame *f)
     return;
   }
   f->eax = file_length(fn->f);
+}
+
+void ISeek(struct intr_frame *f)
+{
+  if (!is_user_vaddr(((int *)f->esp) + 6))
+    ExitStatus(-1);
+
+  int fd = *((int *)f->esp + 4);
+  unsigned int pos = *((unsigned int *)f->esp + 5);
+  struct file_node *fl = GetFile(thread_current(), fd);
+  file_seek(fl->f, pos);
+}
+
+void ITell(struct intr_frame *f)
+{
+  if (!is_user_vaddr(((int *)f->esp) + 2))
+    ExitStatus(-1);
+  int fd = *((int *)f->esp + 1);
+  struct file_node *fl = GetFile(thread_current(), fd);
+  if (fl == NULL || fl->f == NULL)
+  {
+    f->eax = -1;
+    return;
+  }
+  f->eax = file_tell(fl->f);
 }

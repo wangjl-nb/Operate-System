@@ -313,7 +313,7 @@ thread_yield (void)
   schedule ();
   intr_set_level (old_level);
 }
-struct thread *GetThreadFromTid(tid_t child_tid)
+struct thread* GetThreadFromTid(tid_t child_tid)
 {
   // printf("%d\n",child_tid);
   struct list_elem *e;
@@ -483,6 +483,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->SaveData=false;
   t->maxfd=1;
   t->FileNum=0;
+  t->FileSelf = NULL;
   list_init(&t->file_list);
   list_init(&t->sons_ret);
 
@@ -606,3 +607,20 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+int GetRetFromSonsList(struct thread *t,tid_t tid)
+{
+    struct list_elem *e;
+    int ret=-1;
+    for(e=list_begin(&t->sons_ret);e!=list_end(&t->sons_ret);e=list_next(e))
+    {
+        struct ret_data *rd=list_entry(e,struct ret_data,elem);
+        if(rd->pid==tid)
+        {
+            ret=rd->ret;
+            rd->ret=-1;        //每个子进程只能被等一次,第二此等返回-1
+            break;
+        }
+    }
+    return ret;
+}
