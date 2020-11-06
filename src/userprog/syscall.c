@@ -268,7 +268,7 @@ void IRemove(struct intr_frame *f)
 void IRead(struct intr_frame *f)
 {
   int *esp = (int *)f->esp;
-  if (!is_user_vaddr(esp + 7))
+  if (!is_user_vaddr(esp + 4))
     ExitStatus(-1);
   int fd = *(esp + 1);
   char *buffer = (char *)*(esp + 2);
