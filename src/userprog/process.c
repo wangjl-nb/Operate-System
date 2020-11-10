@@ -17,6 +17,7 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "userprog/syscall.h"
 
 static thread_func start_process NO_RETURN;
 static bool load(const char *cmdline, void (**eip)(void), void **esp);
@@ -44,11 +45,11 @@ process_execute(const char *file_name)//执行线程，file_name就是输入的�
   /*添加*/
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create(real_name, PRI_DEFAULT, start_process, fn_copy); //file_name->real_name，创建线程
+  
   if (tid == TID_ERROR)
     palloc_free_page(fn_copy);
-  else{
-    GetThreadFromTid(tid)->father=thread_current();//获取对应tid的线程，将新建线程的父线程指定为当前线程
-  }
+  GetThreadFromTid(tid)->father=thread_current();//获取对应tid的线程，将新建线程的父线程指定为当前线程
+  
   return tid;
 }
 
@@ -82,11 +83,13 @@ start_process(void *file_name_)//file_name包括了参数，所以要在此对�
     // thread_exit();
     t->tid=-1;
     sema_up(&t->SemaWaitSuccess);
+    // printf("打开失败\n");
     ExitStatus(-1);
   }
-  sema_up(&t->SemaWaitSuccess);
+  // printf("打开成功\n");
   t->FileSelf=filesys_open(token);
   file_deny_write(t->FileSelf);
+  
   /*添加*/
   char *esp=(char *)if_.esp;//栈顶指针
   char *arg[256];//最大参数数目
@@ -113,6 +116,7 @@ start_process(void *file_name_)//file_name包括了参数，所以要在此对�
 
 
   }
+  sema_up(&t->SemaWaitSuccess);
   while((int)esp%4){//对齐
     esp--;
   }
@@ -127,6 +131,8 @@ start_process(void *file_name_)//file_name包括了参数，所以要在此对�
   esp=p+1;
   if_.esp=esp;
   palloc_free_page(file_name);
+  // printf("文件打开成功\n");
+  
   /*添加*/
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -162,7 +168,7 @@ int process_wait(tid_t child_tid UNUSED)//需要修改！
   t->bWait=true;
   sema_down(&t->father->SemaWait);                      //在这个信号量上等。
   int ret=-1;
-    ret=GetRetFromSonsList(thread_current(),child_tid);
+  ret=GetRetFromSonsList(thread_current(),child_tid);
 
   return ret;
 
@@ -323,9 +329,11 @@ bool load(const char *file_name, void (**eip)(void), void **esp)
   process_activate();
 
   /* Open executable file. */
+  // printf("%s\n", file_name);
   file = filesys_open(file_name);
   if (file == NULL)
   {
+    //
     printf("load: %s: open failed\n", file_name);
     goto done;
   }

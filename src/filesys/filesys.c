@@ -6,10 +6,11 @@
 #include "filesys/free-map.h"
 #include "filesys/inode.h"
 #include "filesys/directory.h"
+#include "threads/synch.h"
 
 /* Partition that contains the file system. */
 struct block *fs_device;
-
+struct lock sys_lock;
 static void do_format (void);
 
 /* Initializes the file system module.
@@ -20,7 +21,7 @@ filesys_init (bool format)
   fs_device = block_get_role (BLOCK_FILESYS);
   if (fs_device == NULL)
     PANIC ("No file system device found, can't initialize file system.");
-
+  lock_init(&sys_lock);
   inode_init ();
   free_map_init ();
 
@@ -66,13 +67,14 @@ filesys_create (const char *name, off_t initial_size)
 struct file *
 filesys_open (const char *name)
 {
+  lock_acquire(&sys_lock);
   struct dir *dir = dir_open_root ();
   struct inode *inode = NULL;
 
   if (dir != NULL)
     dir_lookup (dir, name, &inode);
   dir_close (dir);
-
+  lock_release(&sys_lock);
   return file_open (inode);
 }
 

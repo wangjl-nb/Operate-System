@@ -217,6 +217,7 @@ thread_block (void)
   ASSERT (intr_get_level () == INTR_OFF);
 
   thread_current ()->status = THREAD_BLOCKED;
+  // list_remove(&thread_current()->elem);
   schedule ();
 }
 
@@ -473,6 +474,7 @@ init_thread (struct thread *t, const char *name, int priority)
   ASSERT (PRI_MIN <= priority && priority <= PRI_MAX);
   ASSERT (name != NULL);
 
+  old_level = intr_disable();
   memset (t, 0, sizeof *t);
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
@@ -481,15 +483,17 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
   t->ret=0;//初始化为0
   t->SaveData=false;
+  t->bWait=false;
   t->maxfd=1;
   t->FileNum=0;
   t->FileSelf = NULL;
+  t->father=NULL;
   list_init(&t->file_list);
   list_init(&t->sons_ret);
 
   sema_init(&t->SemaWait, 0);//初始化信号量为0
   sema_init(&t->SemaWaitSuccess, 0); //初始化信号量为0
-  old_level = intr_disable ();
+  
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
 }

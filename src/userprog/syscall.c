@@ -35,26 +35,28 @@ void ITell(struct intr_frame *f);
 void IHalt(struct intr_frame *f);
 struct file_node *GetFile(struct thread *t,int fd);
 // void putbuf (char *buffer,size_t size);
+struct lock syslock;
 
 void
 syscall_init (void) 
 {
+  lock_init(&syslock);
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
   for(int i=0;i<MAXCALL;i++)
     pfn[i]=NULL;
-    pfn[SYS_WRITE]=IWrite;  
-    pfn[SYS_EXIT]=IExit;//退出线程
-    pfn[SYS_CREATE]=ICreate;//创建文件
-    pfn[SYS_OPEN]=IOpen;//打开文件
-    pfn[SYS_CLOSE]=IClose;
-    pfn[SYS_READ]=IRead;
-    pfn[SYS_FILESIZE]=IFileSize;
-    pfn[SYS_EXEC]=IExec;
-    pfn[SYS_WAIT]=IWait;
-    pfn[SYS_SEEK]=ISeek;
-    pfn[SYS_REMOVE]=IRemove;
-    pfn[SYS_TELL]=ITell;
-    pfn[SYS_HALT]=IHalt;
+  pfn[SYS_WRITE]=IWrite;  
+  pfn[SYS_EXIT]=IExit;//退出线程
+  pfn[SYS_CREATE]=ICreate;//创建文件
+  pfn[SYS_OPEN]=IOpen;//打开文件
+  pfn[SYS_CLOSE]=IClose;
+  pfn[SYS_READ]=IRead;
+  pfn[SYS_FILESIZE]=IFileSize;
+  pfn[SYS_EXEC]=IExec;
+  pfn[SYS_WAIT]=IWait;
+  pfn[SYS_SEEK]=ISeek;
+  pfn[SYS_REMOVE]=IRemove;
+  pfn[SYS_TELL]=ITell;
+  pfn[SYS_HALT]=IHalt;
 }
 
 static void
@@ -78,7 +80,7 @@ syscall_handler (struct intr_frame *f UNUSED) //系统调用
 
 void IWrite(struct intr_frame *f){//三个参数
   int *esp=(int *)f->esp;
-  if(!is_user_vaddr(esp+7))
+  if(!is_user_vaddr(esp+4))
     ExitStatus(-1);
   int fd=*(esp+1);//
   char *buffer=(char *)*(esp+2); 
@@ -135,13 +137,17 @@ void ExitStatus(int status){//进程异常时调用
 
 void IExec(struct intr_frame *f)
 {
-  if (!is_user_vaddr(((int *)f->esp) + 2))
+  if (!is_user_vaddr(((int *)f->esp) + 2)){
     ExitStatus(-1);
+  }
+  // lock_acquire(&syslock);
   const char *file = (char *)*((int *)f->esp + 1);
   tid_t tid = -1;
-  if (file == NULL||file_open(file)==NULL)
+  if (file == NULL)
   {
+    // printf("%s\n", file);
     f->eax = -1;
+    // lock_release(&syslock);
     return;
   }
   char *newfile = (char *)malloc(sizeof(char) * (strlen(file) + 1));
@@ -149,54 +155,62 @@ void IExec(struct intr_frame *f)
   memcpy(newfile, file, strlen(file) + 1);
   tid = process_execute(newfile);
   struct thread *t = GetThreadFromTid(tid);
+  // printf("%s\n",t->name);
+  
   sema_down(&t->SemaWaitSuccess);
   f->eax = t->tid;
   // t->father->sons++;
   free(newfile);
-  sema_up(&t->SemaWaitSuccess);
+  // lock_release(&syslock);
+  // sema_up(&t->SemaWaitSuccess);
 }
 
 void ICreate(struct intr_frame *f) //两个参数
 {
-  if (!is_user_vaddr(((int *)f->esp) + 6))
+  if (!is_user_vaddr(((int *)f->esp) + 3))
     ExitStatus(-1);
-  if ((const char *)*((unsigned int *)f->esp + 4) == NULL)
+  if ((const char *)*((unsigned int *)f->esp + 1) == NULL)
   {
     f->eax = -1;
     ExitStatus(-1);
   }
-  bool ret = filesys_create((const char *)*((unsigned int *)f->esp + 4), *((unsigned int *)f->esp + 5));
+  bool ret = filesys_create((const char *)*((unsigned int *)f->esp + 1), *((unsigned int *)f->esp + 2));
   f->eax = ret;
 }
 
 void IOpen(struct intr_frame *f)
 {
+  // lock_acquire(&syslock);
   if (!is_user_vaddr(((int *)f->esp) + 2)){
     ExitStatus(-1);
   }
+  // lock_release(&syslock);
   struct thread *cur = thread_current();
   const char *FileName = (char *)*((int *)f->esp + 1);
+  // printf("test:%s\n", FileName);
   if (FileName == NULL)
   {
     f->eax = -1;
     ExitStatus(-1);
   }
+  // lock_acquire(&syslock);
   struct file_node *fn = (struct file_node *)malloc(sizeof(struct file_node));
-
   fn->f = filesys_open(FileName);
-  if (fn->f == NULL || cur->FileNum >= MaxFiles) //文件不存在或者已达到能打开的最大文件数
+  // lock_release(&syslock);
+  if (fn->f == NULL || cur->FileNum >= MaxFiles) //文件不存在或者已达到能打开的最大文件数{}
     fn->fd = -1;
   else
     fn->fd = ++cur->maxfd;//记录已打开的文件数（文件句柄）
   f->eax = fn->fd;
+  // printf("%d\n",fn->fd);
   if (fn->fd == -1)//打开失败就释放内存
     free(fn);
-
   else
   {
     cur->FileNum++;
     list_push_back(&cur->file_list, &fn->elem);//把文件放入线程的文件列表
   }
+  // lock_release(&syslock);
 }
 
 struct file_node *GetFile(struct thread *t,int fd){
@@ -267,9 +281,11 @@ void IRemove(struct intr_frame *f)
 
 void IRead(struct intr_frame *f)
 {
+  
   int *esp = (int *)f->esp;
   if (!is_user_vaddr(esp + 4))
     ExitStatus(-1);
+  // lock_acquire(&syslock);
   int fd = *(esp + 1);
   char *buffer = (char *)*(esp + 2);
   unsigned size = *(esp + 3);
@@ -289,14 +305,20 @@ void IRead(struct intr_frame *f)
       buffer[i] = input_getc();
   }
   else //从文件读
-  {
+  { 
+    // lock_init(&syslock);
+    // printf("%d\n",syslock.semaphore.value);
     fn = GetFile(cur, fd); //获取文件指针
     if (fn == NULL)
     {
+      
       f->eax = -1;
+      // lock_release(&syslock);
       return;
     }
+    
     f->eax = file_read(fn->f, buffer, size);
+    // lock_release(&syslock);
   }
 }
 
@@ -317,11 +339,11 @@ void IFileSize(struct intr_frame *f)
 
 void ISeek(struct intr_frame *f)
 {
-  if (!is_user_vaddr(((int *)f->esp) + 6))
+  if (!is_user_vaddr(((int *)f->esp) + 3))
     ExitStatus(-1);
 
-  int fd = *((int *)f->esp + 4);
-  unsigned int pos = *((unsigned int *)f->esp + 5);
+  int fd = *((int *)f->esp + 1);
+  unsigned int pos = *((unsigned int *)f->esp + 2);
   struct file_node *fl = GetFile(thread_current(), fd);
   file_seek(fl->f, pos);
 }
