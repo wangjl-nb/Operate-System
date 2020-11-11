@@ -482,7 +482,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   t->ret=0;//初始化为0
-  t->SaveData=false;
+  t->SaveData=false;//以下均为初始化
   t->bWait=false;
   t->maxfd=1;
   t->FileNum=0;

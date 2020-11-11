@@ -65,9 +65,9 @@ filesys_create (const char *name, off_t initial_size)
    Fails if no file named NAME exists,
    or if an internal memory allocation fails. */
 struct file *
-filesys_open (const char *name)
+filesys_open (const char *name)//文件系统内部均为临界资源，需要加锁防止冲突
 {
-  lock_acquire(&sys_lock);
+  lock_acquire(&sys_lock);//添加锁
   struct dir *dir = dir_open_root ();
   struct inode *inode = NULL;
 
